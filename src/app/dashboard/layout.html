@@ -1,0 +1,17 @@
+<!-- @import { Sidebar, TopMenu } from ../components -->
+<div
+  class="bg-background text-foreground h-screen w-full overflow-hidden p-4 font-sans"
+>
+  <div class="grid grid-cols-5 grid-rows-[auto_1fr] gap-4 h-full">
+    <TopMenu />
+    <Sidebar />
+
+    <main class="col-span-4 row-start-2 overflow-y-auto pr-2 pb-2 scroll-smooth">
+      [[children | safe]]
+    </main>
+  </div>
+
+  <script>
+    lucide.createIcons();
+  </script>
+</div>

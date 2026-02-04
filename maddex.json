@@ -1,0 +1,14 @@
+{
+  "style": "default",
+  "force": false,
+  "outputDir": "src/lib/maddex",
+  "iconsInstalled": true,
+  "tailwind": {
+    "css": "src/app/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "pythonPath": "src/lib/maddex",
+  "iconLibrary": "ppicons"
+}

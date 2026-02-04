@@ -1,0 +1,18 @@
+{
+  "projectName": "caspian-dashboard",
+  "projectRootPath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard",
+  "bsTarget": "http://localhost/projects/python/starter-kits/caspian-dashboard/",
+  "bsPathRewrite": {
+    "^/": "/projects/python/starter-kits/caspian-dashboard/"
+  },
+  "backendOnly": false,
+  "tailwindcss": true,
+  "mcp": false,
+  "prisma": false,
+  "typescript": false,
+  "version": "0.0.32",
+  "componentScanDirs": [
+    "src"
+  ],
+  "excludeFiles": []
+}

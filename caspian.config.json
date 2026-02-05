@@ -14,5 +14,7 @@
   "componentScanDirs": [
     "src"
   ],
-  "excludeFiles": []
+  "excludeFiles": [
+    "./src/app/globals.css"
+  ]
 }

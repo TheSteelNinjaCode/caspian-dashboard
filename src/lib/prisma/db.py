@@ -523,9 +523,9 @@ class UserDelegate:
         if skip:
             sql += f" OFFSET {skip}"
 
-        async with conn.execute(sql, params) as cursor:
-            columns = [desc[0] for desc in cursor.description] if cursor.description else selected_fields
-            rows = await cursor.fetchall()
+        async with conn.execute(sql, params) as Cursor:
+            columns = [desc[0] for desc in Cursor.description] if Cursor.description else selected_fields
+            rows = await Cursor.fetchall()
             results = [self._row_to_model(row, columns) for row in rows]
 
         # Apply query options and load relations
@@ -558,9 +558,9 @@ class UserDelegate:
             sql += f" WHERE {where_sql}"
         sql += " LIMIT 1"
 
-        async with conn.execute(sql, params) as cursor:
-            columns = [desc[0] for desc in cursor.description] if cursor.description else selected_fields
-            row = await cursor.fetchone()
+        async with conn.execute(sql, params) as Cursor:
+            columns = [desc[0] for desc in Cursor.description] if Cursor.description else selected_fields
+            row = await Cursor.fetchone()
 
         if not row:
             return None
@@ -910,8 +910,8 @@ class UserDelegate:
             if where_sql:
                 sql += f" WHERE {where_sql}"
 
-        async with conn.execute(sql, params) as cursor:
-            row = await cursor.fetchone()
+        async with conn.execute(sql, params) as Cursor:
+            row = await Cursor.fetchone()
             return row[0] if row else 0
 
     async def upsert(
@@ -1146,9 +1146,9 @@ class UserRoleDelegate:
         if skip:
             sql += f" OFFSET {skip}"
 
-        async with conn.execute(sql, params) as cursor:
-            columns = [desc[0] for desc in cursor.description] if cursor.description else selected_fields
-            rows = await cursor.fetchall()
+        async with conn.execute(sql, params) as Cursor:
+            columns = [desc[0] for desc in Cursor.description] if Cursor.description else selected_fields
+            rows = await Cursor.fetchall()
             results = [self._row_to_model(row, columns) for row in rows]
 
         # Apply query options and load relations
@@ -1181,9 +1181,9 @@ class UserRoleDelegate:
             sql += f" WHERE {where_sql}"
         sql += " LIMIT 1"
 
-        async with conn.execute(sql, params) as cursor:
-            columns = [desc[0] for desc in cursor.description] if cursor.description else selected_fields
-            row = await cursor.fetchone()
+        async with conn.execute(sql, params) as Cursor:
+            columns = [desc[0] for desc in Cursor.description] if Cursor.description else selected_fields
+            row = await Cursor.fetchone()
 
         if not row:
             return None
@@ -1525,8 +1525,8 @@ class UserRoleDelegate:
             if where_sql:
                 sql += f" WHERE {where_sql}"
 
-        async with conn.execute(sql, params) as cursor:
-            row = await cursor.fetchone()
+        async with conn.execute(sql, params) as Cursor:
+            row = await Cursor.fetchone()
             return row[0] if row else 0
 
     async def upsert(

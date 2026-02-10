@@ -11,5 +11,7 @@ werkzeug>=3.0,<4.0
 cuid2>=2.0,<3.0
 nanoid>=2.0,<3.0
 python-ulid>=2.7,<3.1
-caspian-utils==0.0.32
+caspian-utils==0.0.33
 tailwind-merge>=0.3.3,<0.4.0
+psycopg2-binary>=2.9,<3.0
+asyncpg>=0.31.0,<1.0

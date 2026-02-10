@@ -9,6 +9,7 @@
           <CardTitle>Login to your account</CardTitle>
           <CardDescription>
             Enter your email below to login to your account
+            <p class="text-red-500">{requestError}</p>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -54,6 +55,8 @@
 </div>
 
 <script>
+  const [requestError, setRequestError] = pp.state(null);
+
   async function handleSignin(e) {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -62,5 +65,11 @@
 
     const response = await pp.rpc("signin", data);
     console.log("🚀 ~ handleSignin ~ response:", response);
+
+    if (!response.success) {
+      setRequestError(response.message);
+    } else {
+      setRequestError(null);
+    }
   }
 </script>

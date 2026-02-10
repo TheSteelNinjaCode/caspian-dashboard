@@ -8,9 +8,9 @@
   "backendOnly": false,
   "tailwindcss": true,
   "mcp": false,
-  "prisma": false,
+  "prisma": true,
   "typescript": false,
-  "version": "0.0.32",
+  "version": "0.0.35",
   "componentScanDirs": [
     "src"
   ],

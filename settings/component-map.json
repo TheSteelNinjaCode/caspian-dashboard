@@ -59,6 +59,173 @@
     ]
   },
   {
+    "componentName": "Card",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Card.py",
+    "relativePath": "src/lib/maddex/Card.py",
+    "importRoute": "src.lib.maddex.Card",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "CardHeader",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Card.py",
+    "relativePath": "src/lib/maddex/Card.py",
+    "importRoute": "src.lib.maddex.Card",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "CardTitle",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Card.py",
+    "relativePath": "src/lib/maddex/Card.py",
+    "importRoute": "src.lib.maddex.Card",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "CardDescription",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Card.py",
+    "relativePath": "src/lib/maddex/Card.py",
+    "importRoute": "src.lib.maddex.Card",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "CardAction",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Card.py",
+    "relativePath": "src/lib/maddex/Card.py",
+    "importRoute": "src.lib.maddex.Card",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "CardContent",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Card.py",
+    "relativePath": "src/lib/maddex/Card.py",
+    "importRoute": "src.lib.maddex.Card",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "CardFooter",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Card.py",
+    "relativePath": "src/lib/maddex/Card.py",
+    "importRoute": "src.lib.maddex.Card",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "Field",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Field.py",
+    "relativePath": "src/lib/maddex/Field.py",
+    "importRoute": "src.lib.maddex.Field",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "orientation",
+        "type": "Literal[\"vertical\", \"horizontal\", \"responsive\"]",
+        "hasDefault": true,
+        "defaultValue": "vertical",
+        "options": [
+          "vertical",
+          "horizontal",
+          "responsive"
+        ]
+      }
+    ]
+  },
+  {
+    "componentName": "FieldSet",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Field.py",
+    "relativePath": "src/lib/maddex/Field.py",
+    "importRoute": "src.lib.maddex.Field",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "FieldLegend",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Field.py",
+    "relativePath": "src/lib/maddex/Field.py",
+    "importRoute": "src.lib.maddex.Field",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "variant",
+        "type": "Literal[\"legend\", \"label\"]",
+        "hasDefault": true,
+        "defaultValue": "legend",
+        "options": [
+          "legend",
+          "label"
+        ]
+      }
+    ]
+  },
+  {
+    "componentName": "FieldGroup",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Field.py",
+    "relativePath": "src/lib/maddex/Field.py",
+    "importRoute": "src.lib.maddex.Field",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "FieldContent",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Field.py",
+    "relativePath": "src/lib/maddex/Field.py",
+    "importRoute": "src.lib.maddex.Field",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "FieldLabel",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Field.py",
+    "relativePath": "src/lib/maddex/Field.py",
+    "importRoute": "src.lib.maddex.Field",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "FieldTitle",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Field.py",
+    "relativePath": "src/lib/maddex/Field.py",
+    "importRoute": "src.lib.maddex.Field",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "FieldDescription",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Field.py",
+    "relativePath": "src/lib/maddex/Field.py",
+    "importRoute": "src.lib.maddex.Field",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "FieldSeparator",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Field.py",
+    "relativePath": "src/lib/maddex/Field.py",
+    "importRoute": "src.lib.maddex.Field",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "FieldError",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Field.py",
+    "relativePath": "src/lib/maddex/Field.py",
+    "importRoute": "src.lib.maddex.Field",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "Input",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Input.py",
+    "relativePath": "src/lib/maddex/Input.py",
+    "importRoute": "src.lib.maddex.Input",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
     "componentName": "Portal",
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Portal.py",
     "relativePath": "src/lib/maddex/Portal.py",

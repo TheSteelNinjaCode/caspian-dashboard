@@ -1,4 +1,7 @@
 [
+  "./src/app/(auth)/signin/index.html",
+  "./src/app/(auth)/signin/index.py",
+  "./src/app/(auth)/signin/__pycache__/index.cpython-314.pyc",
   "./src/app/components/Sidebar.html",
   "./src/app/components/Sidebar.py",
   "./src/app/components/TopMenu.html",

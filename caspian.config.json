@@ -10,11 +10,13 @@
   "mcp": false,
   "prisma": true,
   "typescript": false,
-  "version": "0.0.35",
+  "version": "0.0.38",
   "componentScanDirs": [
     "src"
   ],
   "excludeFiles": [
-    "./src/app/globals.css"
+    "./src/app/globals.css",
+    "./prisma/schema.prisma",
+    "./prisma/seed.ts"
   ]
 }

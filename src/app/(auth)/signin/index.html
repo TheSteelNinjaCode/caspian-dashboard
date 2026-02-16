@@ -35,11 +35,11 @@
                     Forgot your password?
                   </a>
                 </div>
-                <Input name="password" id="password" type="password" required />
+                <Input name="password" id="password" type="password" required placeholder="password" />
               </Field>
               <Field>
-                <Button type="submit">Login</Button>
-                <Button variant="outline" type="button">
+                <Button type="submit" disabled={loading}>{loading ? "Loading..." : "Login"}</Button>
+                <Button variant="outline" type="button" disabled={loading}>
                   Login with Google
                 </Button>
                 <FieldDescription class="text-center">
@@ -56,20 +56,22 @@
 
 <script>
   const [requestError, setRequestError] = pp.state(null);
+  const [loading, setLoading] = pp.state(false);
 
   async function handleSignin(e) {
     e.preventDefault();
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
-    console.log("🚀 ~ handleSignin ~ data:", data);
 
+    setLoading(true);
     const response = await pp.rpc("signin", data);
-    console.log("🚀 ~ handleSignin ~ response:", response);
 
     if (!response.success) {
       setRequestError(response.message);
     } else {
       setRequestError(null);
     }
+
+    setLoading(false);
   }
 </script>

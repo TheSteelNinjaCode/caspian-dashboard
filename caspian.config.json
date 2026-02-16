@@ -17,6 +17,7 @@
   "excludeFiles": [
     "./src/app/globals.css",
     "./prisma/schema.prisma",
-    "./prisma/seed.ts"
+    "./prisma/seed.ts",
+    ".env"
   ]
 }

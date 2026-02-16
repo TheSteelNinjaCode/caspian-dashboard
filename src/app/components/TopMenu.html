@@ -1,18 +1,20 @@
+<!-- @import { Profile } from . -->
+<!-- @import { DropdownMenu } from ../../lib/maddex -->
+<!-- @import { Bell, Search } from ../../lib/ppicons -->
+<!-- @import { DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuShortcut, DropdownMenuTrigger } from ../../lib/maddex/DropdownMenu.py -->
 <header
   class="col-span-5 h-14 bg-card border border-border rounded-xl px-4 flex items-center justify-between shadow-sm z-10"
 >
   <div class="flex items-center gap-2">
     <div class="bg-primary/10 p-1.5 rounded-lg">
-      <i data-lucide="layout-dashboard" class="size-5 text-primary"></i>
+      <img src="/favicon.ico" alt="Brand Logo" class="size-6" />
     </div>
-    <h1 class="text-lg font-bold tracking-tight">NexusBoard</h1>
   </div>
 
   <div class="hidden md:flex items-center relative w-96">
-    <i
-      data-lucide="search"
+    <Search
       class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
-    ></i>
+    />
     <input
       type="text"
       placeholder="Search..."
@@ -22,15 +24,44 @@
 
   <div class="flex items-center gap-3">
     <button class="p-2 hover:bg-accent rounded-full transition-colors relative">
-      <i data-lucide="bell" class="size-5"></i>
+      <Bell class="size-5" />
       <span
         class="absolute top-1.5 right-1.5 size-2 bg-red-500 rounded-full border-2 border-card"
       ></span>
     </button>
-    <div
-      class="size-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-medium text-sm"
-    >
-      JD
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger>
+        <div
+          class="size-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-medium text-sm"
+        >
+          JD
+        </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent class="w-40">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>My Account</DropdownMenuLabel>
+          <DropdownMenuItem onclick="setOpenProfile(true)">
+            Profile <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onclick="handleLogout()">
+            Logout <DropdownMenuShortcut>⌘B</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+
+    <Profile open="{openProfile}" onOpenChange="{setOpenProfile}" />
   </div>
+
+  <script>
+    const [openProfile, setOpenProfile] = pp.state(false);
+
+    async function handleLogout() {
+      try {
+        await pp.rpc("logout");
+      } catch (error) {
+        console.error("Logout failed:", error);
+      }
+    }
+  </script>
 </header>

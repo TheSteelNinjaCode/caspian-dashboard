@@ -1,0 +1,10 @@
+<ul>
+    <template pp-for="user in users">
+        <li key="{user.id}">{user.name}</li>
+    </template>
+</ul>
+
+<script>
+    const usersJson = [[users| json]]
+    const [users, setUsers] = pp.state(usersJson)
+</script>

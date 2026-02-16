@@ -1,0 +1,68 @@
+<div [[attributes]]>
+  [[children|safe]]
+
+  <script>
+    (function () {
+      const dropdownMenuId = "[[id]]";
+      const dropdownMenuTriggerId = "[[trigger_id]]";
+      const triggerBtn = document.getElementById(dropdownMenuTriggerId);
+
+      if (triggerBtn) {
+        triggerBtn.addEventListener("click", function (event) {
+          event.stopPropagation();
+          toggleDropdown(dropdownMenuId);
+        });
+      }
+
+      function toggleDropdown(currentMenuId) {
+        const currentMenu = document.getElementById(currentMenuId);
+        const allMenus = document.querySelectorAll(
+          '[data-slot="dropdown-menu-content"]',
+        );
+
+        allMenus.forEach((menu) => {
+          if (menu.id !== currentMenuId) {
+            menu.classList.add("hidden");
+            menu.classList.remove("animate-in");
+          }
+        });
+
+        const isHidden = currentMenu.classList.contains("hidden");
+        if (isHidden) {
+          currentMenu.classList.remove("hidden");
+          currentMenu.classList.add("animate-in");
+          triggerBtn.setAttribute("aria-expanded", "true");
+        } else {
+          currentMenu.classList.add("hidden");
+          currentMenu.classList.remove("animate-in");
+          triggerBtn.setAttribute("aria-expanded", "false");
+        }
+      }
+
+      document.addEventListener("click", function (event) {
+        const isDropdownButton = event.target.closest(
+          `[id="${dropdownMenuTriggerId}"]`,
+        );
+        const isDropdownMenu = event.target.closest(`[id="${dropdownMenuId}"]`);
+
+        if (!isDropdownButton && !isDropdownMenu) {
+          const menu = document.getElementById(dropdownMenuId);
+          if (menu && !menu.classList.contains("hidden")) {
+            menu.classList.add("hidden");
+            if (triggerBtn) triggerBtn.setAttribute("aria-expanded", "false");
+          }
+        }
+      });
+
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          const menu = document.getElementById(dropdownMenuId);
+          if (menu) {
+            menu.classList.add("hidden");
+            if (triggerBtn) triggerBtn.setAttribute("aria-expanded", "false");
+          }
+        }
+      });
+    })();
+  </script>
+</div>

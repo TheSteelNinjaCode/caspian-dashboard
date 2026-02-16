@@ -809,7 +809,10 @@ class UserDelegate:
 
         for k, v in list(data_dict.items()):
             if isinstance(v, bool):
-                data_dict[k] = 1 if v else 0
+                if SQLBuilder.PROVIDER == "sqlite":
+                    data_dict[k] = 1 if v else 0
+                else:
+                    data_dict[k] = v
             elif isinstance(v, datetime):
                 if SQLBuilder.PROVIDER == "sqlite":
                     data_dict[k] = v.isoformat()
@@ -1424,7 +1427,10 @@ class UserRoleDelegate:
 
         for k, v in list(data_dict.items()):
             if isinstance(v, bool):
-                data_dict[k] = 1 if v else 0
+                if SQLBuilder.PROVIDER == "sqlite":
+                    data_dict[k] = 1 if v else 0
+                else:
+                    data_dict[k] = v
             elif isinstance(v, datetime):
                 if SQLBuilder.PROVIDER == "sqlite":
                     data_dict[k] = v.isoformat()

@@ -1,0 +1,193 @@
+<div [[attributes]]>
+  [[children]]
+
+  <script>
+    const [openValue, setOpenValue] = pp.state(false);
+    const dialog = document.getElementById("[[dialog_id]]");
+    const dialogOpenAttribute = dialog.getAttribute("open");
+    const trigger = dialog.querySelector('[data-slot="dialog-trigger"]');
+    const content = dialog.querySelector('[data-slot="dialog-content"]');
+    const close = dialog.querySelectorAll('[data-slot="dialog-close"]');
+    const overlay = dialog.querySelector('[data-slot="dialog-overlay"]');
+    const closeOnOverlayClick =
+      dialog.hasAttribute("closeOnOverlayClick") === true;
+    const portal = document.getElementById("[[final_portal_id]]");
+    const resetOnOpen = dialog.hasAttribute("resetOnOpen");
+
+    (function initScrollLock() {
+      if (window.__ppScrollLock) return;
+      window.__ppScrollLock = {
+        locks: 0,
+        scrollTop: 0,
+        initialPadRight: "",
+      };
+    })();
+
+    function getScrollbarWidth() {
+      const docEl = document.documentElement;
+      return window.innerWidth - docEl.clientWidth;
+    }
+
+    function lockScroll() {
+      const state = window.__ppScrollLock;
+      if (state.locks === 0) {
+        state.scrollTop =
+          window.scrollY || document.documentElement.scrollTop || 0;
+
+        const docEl = document.documentElement;
+        state.initialPadRight = docEl.style.paddingRight || "";
+        const sw = getScrollbarWidth();
+        if (sw > 0) docEl.style.paddingRight = `${sw}px`;
+
+        docEl.style.overflow = "hidden";
+        document.body.style.position = "fixed";
+        document.body.style.top = `-${state.scrollTop}px`;
+        document.body.style.left = "0";
+        document.body.style.right = "0";
+        document.body.style.width = "100%";
+      }
+      state.locks++;
+    }
+
+    function unlockScroll() {
+      const state = window.__ppScrollLock;
+      if (!state || state.locks === 0) return;
+      state.locks--;
+      if (state.locks === 0) {
+        const docEl = document.documentElement;
+        docEl.style.overflow = "";
+        docEl.style.paddingRight = state.initialPadRight || "";
+        document.body.style.position = "";
+        document.body.style.top = "";
+        document.body.style.left = "";
+        document.body.style.right = "";
+        document.body.style.width = "";
+        window.scrollTo(0, state.scrollTop || 0);
+      }
+    }
+
+    function focusFirstField(root) {
+      if (!root) return;
+      const first = root.querySelector(
+        '[autofocus], input:not([type="hidden"]):not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), [contenteditable=""], [contenteditable="true"], [tabindex]:not([tabindex^="-"])'
+      );
+      if (first) {
+        first.focus({ preventScroll: true });
+        first.select?.();
+      }
+    }
+
+    function resetFields(root) {
+      if (!root) return;
+
+      const bubble = (el) => {
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      };
+
+      const form = root.querySelector("form");
+      if (form) {
+        form.reset();
+        form.querySelectorAll("input, textarea, select").forEach(bubble);
+        return;
+      }
+
+      root.querySelectorAll('input:not([type="hidden"])').forEach((i) => {
+        if (i.disabled) return;
+        if (i.type === "checkbox" || i.type === "radio")
+          i.checked = i.defaultChecked;
+        else i.value = i.defaultValue;
+        bubble(i);
+      });
+
+      root.querySelectorAll("textarea").forEach((t) => {
+        if (t.disabled) return;
+        t.value = t.defaultValue;
+        bubble(t);
+      });
+
+      root.querySelectorAll("select").forEach((s) => {
+        if (s.disabled) return;
+        s.querySelectorAll("option").forEach(
+          (o) => (o.selected = o.defaultSelected)
+        );
+        bubble(s);
+      });
+    }
+
+    const openDialog = () => {
+      dialog.setAttribute("data-state", "open");
+      content?.setAttribute("data-state", "open");
+      if (overlay) {
+        overlay.setAttribute("data-state", "open");
+      }
+      if (portal) {
+        portal.hidden = false;
+      }
+
+      lockScroll();
+
+      if (resetOnOpen) resetFields(content);
+      requestAnimationFrame(() => focusFirstField(content));
+    };
+
+    const closeDialog = () => {
+      dialog.setAttribute("data-state", "closed");
+      content?.setAttribute("data-state", "closed");
+      if (overlay) {
+        overlay.setAttribute("data-state", "closed");
+      }
+      if (portal) {
+        setTimeout(() => {
+          portal.hidden = true;
+        }, 120);
+      }
+
+      unlockScroll();
+    };
+
+    trigger?.addEventListener("click", () => {
+      if (typeof onOpenChange !== "undefined") {
+        onOpenChange(true);
+      } else {
+        setOpenValue(true);
+      }
+    });
+
+    close?.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (typeof onOpenChange !== "undefined") {
+          onOpenChange(false);
+        } else if (typeof onOpenChange === "undefined") {
+          setOpenValue(false);
+        }
+      });
+    });
+
+    overlay?.addEventListener("click", () => {
+      if (typeof onOpenChange !== "undefined") {
+        if (!closeOnOverlayClick) {
+          onOpenChange(false);
+        }
+      } else if (!closeOnOverlayClick) {
+        setOpenValue(false);
+      }
+    });
+
+    pp.effect(() => {
+      if (dialogOpenAttribute !== null) {
+        if (open) {
+          openDialog();
+        } else {
+          closeDialog();
+        }
+      } else {
+        if (openValue) {
+          openDialog();
+        } else {
+          closeDialog();
+        }
+      }
+    }, [open, openValue]);
+  </script>
+</div>

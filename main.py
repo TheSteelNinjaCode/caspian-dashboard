@@ -54,12 +54,12 @@ def setup_auth():
     configure_auth(AuthSettings(
         # Token settings
         default_token_validity="7d",
-        token_auto_refresh=False,
+        token_auto_refresh=True,
 
         # Route protection mode
         # True = all routes private except public_routes and auth_routes
         # False = only private_routes require auth
-        is_all_routes_private=False,
+        is_all_routes_private=True,
 
         # Route lists
         private_routes=[],  # Used when is_all_routes_private=False

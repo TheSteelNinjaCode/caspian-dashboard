@@ -1,10 +1,174 @@
-<ul>
+<!-- @import { AlertDialog, Button, ButtonGroup, Dialog, Field, Input, Label, Table } from ../../../lib/maddex -->
+<!-- @import { Pencil, Plus, Trash } from ../../../lib/ppicons -->
+<!-- @import { CreateUpdateDialog } from ../../components/dashboard/users -->
+<!-- @import { AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from ../../../lib/maddex/AlertDialog.py -->
+<!-- @import { DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from ../../../lib/maddex/Dialog.py -->
+<!-- @import FieldGroup from ../../../lib/maddex/Field.py -->
+<!-- @import { TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from ../../../lib/maddex/Table.py -->
+
+<header class="mb-6 flex items-center justify-between">
+  <h2 class="text-2xl font-bold tracking-tight">Users</h2>
+  <div>
+    <Button onclick="newUser()">
+    <Plus class="size-4" />
+    </Button>
+  </div>
+</header>
+
+<Table>
+  <TableCaption>A list of your recent users.</TableCaption>
+  <TableHeader>
+    <TableRow>
+      <TableHead>Name</TableHead>
+      <TableHead>Email</TableHead>
+      <TableHead>Created at</TableHead>
+      <TableHead>Options</TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
     <template pp-for="user in users">
-        <li key="{user.id}">{user.name}</li>
+      <TableRow>
+        <TableCell class="font-medium">{user.name}</TableCell>
+        <TableCell>{user.email}</TableCell>
+        <TableCell>{formatDate(user.createdAt)}</TableCell>
+        <TableCell>
+            <ButtonGroup>
+                <Button variant="outline" size="icon" onclick="editUser(user)">
+                    <Pencil class="size-4" />
+                </Button>
+                <Button variant="destructive" size="icon" onclick="deleteUser(user)">
+                    <Trash class="size-4" />
+                </Button>
+            </ButtonGroup>
+        </TableCell>
+      </TableRow>
     </template>
-</ul>
+  </TableBody>
+</Table>
+
+<Dialog open="{openDialog}" onOpenChange="{setOpenDialog}">
+<form onsubmit="createUser(event)">
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>{isEditMode ? "Edit User" : "Create User"}</DialogTitle>
+      <DialogDescription>
+        {isEditMode ? "Edit the details of the selected user." : "Fill out the form to create a new user."}
+      </DialogDescription>
+    </DialogHeader>
+    <FieldGroup>
+        <Field>
+        <Label for="name-1">Name</Label>
+        <Input
+            id="name-1"
+            name="name"
+            placeholder="Pedro Duarte"
+            value="{userName}"
+            oninput="setUserName(event.target.value)"
+        />
+        </Field>
+    </FieldGroup>
+    <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
+          <Button type="submit" disabled="{loading}">{loading ? "Saving..." : "Save changes"}</Button>
+        </DialogFooter>
+  </DialogContent>
+  </form>
+</Dialog>
+
+<AlertDialog open="{openAlertDialog}" onOpenChange="{setOpenAlertDialog}">
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+      <AlertDialogDescription>
+        This action cannot be undone. This will permanently delete your account and remove your data from our servers.
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+    <AlertDialogFooter>
+      <AlertDialogCancel>Cancel</AlertDialogCancel>
+      <AlertDialogAction onclick="deleteUserConfirmed()">{loading ? "Deleting..." : "Continue"}</AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
 
 <script>
-    const usersJson = [[users| json]]
-    const [users, setUsers] = pp.state(usersJson)
+  const usersJson = [[users | json]];
+  const [users, setUsers] = pp.state(usersJson);
+  const [openDialog, setOpenDialog] = pp.state(false);
+  const [openAlertDialog, setOpenAlertDialog] = pp.state(false);
+  const [selectedUser, setSelectedUser] = pp.state(null);
+  const [isEditMode, setIsEditMode] = pp.state(false);
+  const [userName, setUserName] = pp.state("");
+  const [loading, setLoading] = pp.state(false);
+
+  function formatDate(dateString) {
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    return new Date(dateString).toLocaleDateString(undefined, options);
+  }
+
+  function newUser() {
+    setIsEditMode(false);
+    setSelectedUser(null);
+    setUserName("");
+    setOpenDialog(true);
+  }
+
+  function editUser(user) {
+    console.log("Edit user:", user);
+    setIsEditMode(true);
+    setSelectedUser(user);
+    setUserName(user.name);
+    setOpenDialog(true);
+  }
+
+  function deleteUser(user) {
+    console.log("Delete user:", user);
+    setSelectedUser(user);
+    setOpenAlertDialog(true);
+  }
+
+  async function createUser(e) {
+    e.preventDefault();
+    setLoading(true);
+    const formData = new FormData(e.target);
+    const name = formData.get("name");
+    console.log("Creating user with name:", name);
+
+    const payload = {
+        id: selectedUser ? selectedUser.id : null,
+        name
+    }
+
+    const response = await pp.rpc("create_update_user", payload);
+    console.log("Response from server:", response);
+
+    if (response.success) {
+      if (isEditMode) {
+        setUsers(users.map(user => user.id === response.user.id ? response.user : user));
+      } else {
+        setUsers([...users, response.user]);
+      }
+      setOpenDialog(false);
+    } else {
+      alert("Failed to create user: " + response.message);
+    }
+
+    setLoading(false);
+  }
+
+  async function deleteUserConfirmed() {
+    setLoading(true);
+    const response = await pp.rpc("delete_user", { id: selectedUser.id });
+    console.log("Response from server:", response);
+
+    if (response.success) {
+      setUsers(users.filter(user => user.id !== response.user.id));
+      setOpenAlertDialog(false);
+    } else {
+      alert("Failed to delete user: " + response.message);
+    }
+
+    setLoading(false);
+  }
 </script>

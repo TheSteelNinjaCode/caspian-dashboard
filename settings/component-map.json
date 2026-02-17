@@ -1,5 +1,24 @@
 [
   {
+    "componentName": "CreateUpdateDialog",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\app\\components\\dashboard\\users\\CreateUpdateDialog.py",
+    "relativePath": "src/app/components/dashboard/users/CreateUpdateDialog.py",
+    "importRoute": "src.app.components.dashboard.users.CreateUpdateDialog",
+    "acceptsArbitraryProps": false,
+    "props": [
+      {
+        "name": "openDialog",
+        "type": "str",
+        "hasDefault": false
+      },
+      {
+        "name": "setOpenDialog",
+        "type": "str",
+        "hasDefault": false
+      }
+    ]
+  },
+  {
     "componentName": "Profile",
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\app\\components\\Profile.py",
     "relativePath": "src/app/components/Profile.py",
@@ -34,6 +53,155 @@
     "relativePath": "src/app/components/TopMenu.py",
     "importRoute": "src.app.components.TopMenu",
     "acceptsArbitraryProps": false,
+    "props": []
+  },
+  {
+    "componentName": "AlertDialog",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "open",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "onOpenChange",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "closeOnOverlayClick",
+        "type": "bool | str",
+        "hasDefault": true,
+        "defaultValue": "True"
+      },
+      {
+        "name": "resetOnOpen",
+        "type": "bool | str",
+        "hasDefault": true,
+        "defaultValue": "False"
+      },
+      {
+        "name": "overlayClass",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "id",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      }
+    ]
+  },
+  {
+    "componentName": "AlertDialogTrigger",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "asChild",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "AlertDialogOverlay",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "AlertDialogContent",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "disable_portal",
+        "type": "bool",
+        "hasDefault": true,
+        "defaultValue": "False"
+      },
+      {
+        "name": "portal_to",
+        "type": "str",
+        "hasDefault": true,
+        "defaultValue": "body"
+      },
+      {
+        "name": "portal_id",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "overlay_class",
+        "type": "str",
+        "hasDefault": true,
+        "defaultValue": ""
+      }
+    ]
+  },
+  {
+    "componentName": "AlertDialogHeader",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "AlertDialogFooter",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "AlertDialogTitle",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "AlertDialogDescription",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "AlertDialogAction",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "AlertDialogCancel",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
     "props": []
   },
   {
@@ -76,6 +244,59 @@
         "type": "bool | str | None",
         "hasDefault": true,
         "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "ButtonGroup",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\ButtonGroup.py",
+    "relativePath": "src/lib/maddex/ButtonGroup.py",
+    "importRoute": "src.lib.maddex.ButtonGroup",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "orientation",
+        "type": "Orientation",
+        "hasDefault": true,
+        "defaultValue": "horizontal",
+        "options": [
+          "horizontal",
+          "vertical"
+        ]
+      }
+    ]
+  },
+  {
+    "componentName": "ButtonGroupText",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\ButtonGroup.py",
+    "relativePath": "src/lib/maddex/ButtonGroup.py",
+    "importRoute": "src.lib.maddex.ButtonGroup",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "asChild",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "ButtonGroupSeparator",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\ButtonGroup.py",
+    "relativePath": "src/lib/maddex/ButtonGroup.py",
+    "importRoute": "src.lib.maddex.ButtonGroup",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "orientation",
+        "type": "Orientation",
+        "hasDefault": true,
+        "defaultValue": "vertical",
+        "options": [
+          "horizontal",
+          "vertical"
+        ]
       }
     ]
   },
@@ -562,6 +783,31 @@
     ]
   },
   {
+    "componentName": "Separator",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Separator.py",
+    "relativePath": "src/lib/maddex/Separator.py",
+    "importRoute": "src.lib.maddex.Separator",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "orientation",
+        "type": "SeparatorOrientation",
+        "hasDefault": true,
+        "defaultValue": "horizontal",
+        "options": [
+          "horizontal",
+          "vertical"
+        ]
+      },
+      {
+        "name": "decorative",
+        "type": "bool",
+        "hasDefault": true,
+        "defaultValue": "True"
+      }
+    ]
+  },
+  {
     "componentName": "Slot",
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Slot.py",
     "relativePath": "src/lib/maddex/Slot.py",
@@ -581,6 +827,70 @@
         "defaultValue": "False"
       }
     ]
+  },
+  {
+    "componentName": "Table",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Table.py",
+    "relativePath": "src/lib/maddex/Table.py",
+    "importRoute": "src.lib.maddex.Table",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "TableHeader",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Table.py",
+    "relativePath": "src/lib/maddex/Table.py",
+    "importRoute": "src.lib.maddex.Table",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "TableBody",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Table.py",
+    "relativePath": "src/lib/maddex/Table.py",
+    "importRoute": "src.lib.maddex.Table",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "TableFooter",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Table.py",
+    "relativePath": "src/lib/maddex/Table.py",
+    "importRoute": "src.lib.maddex.Table",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "TableRow",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Table.py",
+    "relativePath": "src/lib/maddex/Table.py",
+    "importRoute": "src.lib.maddex.Table",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "TableHead",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Table.py",
+    "relativePath": "src/lib/maddex/Table.py",
+    "importRoute": "src.lib.maddex.Table",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "TableCell",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Table.py",
+    "relativePath": "src/lib/maddex/Table.py",
+    "importRoute": "src.lib.maddex.Table",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "TableCaption",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Table.py",
+    "relativePath": "src/lib/maddex/Table.py",
+    "importRoute": "src.lib.maddex.Table",
+    "acceptsArbitraryProps": true,
+    "props": []
   },
   {
     "componentName": "ArrowLeft",
@@ -711,6 +1021,22 @@
     "props": []
   },
   {
+    "componentName": "Pencil",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\ppicons\\Pencil.py",
+    "relativePath": "src/lib/ppicons/Pencil.py",
+    "importRoute": "src.lib.ppicons.Pencil",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "Plus",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\ppicons\\Plus.py",
+    "relativePath": "src/lib/ppicons/Plus.py",
+    "importRoute": "src.lib.ppicons.Plus",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
     "componentName": "Search",
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\ppicons\\Search.py",
     "relativePath": "src/lib/ppicons/Search.py",
@@ -723,6 +1049,14 @@
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\ppicons\\Settings.py",
     "relativePath": "src/lib/ppicons/Settings.py",
     "importRoute": "src.lib.ppicons.Settings",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "Trash",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\ppicons\\Trash.py",
+    "relativePath": "src/lib/ppicons/Trash.py",
+    "importRoute": "src.lib.ppicons.Trash",
     "acceptsArbitraryProps": true,
     "props": []
   },

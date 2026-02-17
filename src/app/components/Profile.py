@@ -37,7 +37,6 @@ async def save_profile(name: str):
 @component
 def Profile(open: str | None = None, onOpenChange: str | None = None) -> str:
     user = get_user_profile()
-    print("🚀 ~ user in Profile component:", user)
     return render_html(__file__, {
         "open": open,
         "onOpenChange": onOpenChange,

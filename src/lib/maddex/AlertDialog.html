@@ -1,0 +1,86 @@
+<div [[attributes]]>
+  [[children]]
+
+  <script>
+    const [openValue, setOpenValue] = pp.state(false);
+    const alertdialog = document.getElementById("[[id]]");
+    const openAttr = alertdialog.getAttribute("open");
+    const trigger = alertdialog.querySelector(
+      '[data-slot="alert-dialog-trigger"]',
+    );
+    const content = alertdialog.querySelector(
+      '[data-slot="alert-dialog-content"]',
+    );
+    const closes = alertdialog.querySelectorAll(
+      '[data-slot="alert-dialog-close"]',
+    );
+    const overlay = alertdialog.querySelector(
+      '[data-slot="alert-dialog-overlay"]',
+    );
+    const portal = document.getElementById("[[portal_id]]");
+
+    const openAlert = () => {
+      alertdialog.setAttribute("data-state", "open");
+      content?.setAttribute("data-state", "open");
+      overlay?.setAttribute("data-state", "open");
+      if (portal) portal.hidden = false;
+    };
+
+    const closeAlert = () => {
+      alertdialog.setAttribute("data-state", "closed");
+      content?.setAttribute("data-state", "closed");
+      overlay?.setAttribute("data-state", "closed");
+      if (portal)
+        setTimeout(() => {
+          portal.hidden = true;
+        }, 120);
+    };
+
+    trigger?.addEventListener("click", () => {
+      if (typeof onOpenChange !== "undefined") {
+        onOpenChange(true);
+      } else {
+        setOpenValue(true);
+      }
+    });
+
+    closes?.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (typeof onOpenChange !== "undefined") {
+          onOpenChange(false);
+        } else {
+          setOpenValue(false);
+        }
+      });
+    });
+
+    overlay?.addEventListener(
+      "click",
+      (ev) => {
+        ev.stopPropagation();
+        ev.preventDefault();
+      },
+      true,
+    );
+
+    document.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape") {
+        if (typeof onOpenChange !== "undefined") {
+          onOpenChange(false);
+        } else {
+          setOpenValue(false);
+        }
+      }
+    });
+
+    pp.effect(() => {
+      if (openAttr !== null) {
+        if (open) openAlert();
+        else closeAlert();
+      } else {
+        if (openValue) openAlert();
+        else closeAlert();
+      }
+    }, [open, openValue]);
+  </script>
+</div>

@@ -1,65 +1,170 @@
 <!-- @import { AlertDialog, Button, ButtonGroup, Dialog, Field, Input, Label, Table } from ../../../lib/maddex -->
-<!-- @import { Pencil, Plus, Trash } from ../../../lib/ppicons -->
+<!-- @import { ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash } from ../../../lib/ppicons -->
 <!-- @import { CreateUpdateDialog, DeleteDialog } from ../../components/dashboard/users -->
 <!-- @import { AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from ../../../lib/maddex/AlertDialog.py -->
 <!-- @import { DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from ../../../lib/maddex/Dialog.py -->
 <!-- @import FieldGroup from ../../../lib/maddex/Field.py -->
 <!-- @import { TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from ../../../lib/maddex/Table.py -->
 
-<header class="mb-6 flex items-center justify-between">
-  <h2 class="text-2xl font-bold tracking-tight">Users</h2>
+<header class="mb-6 flex items-center justify-between gap-4">
+  <div class="flex items-center gap-4">
+    <h2 class="text-2xl font-bold tracking-tight">Users</h2>
+  </div>
+
   <div>
     <Button onclick="newUser()">
-    <Plus class="size-4" />
+      <Plus class="size-4" />
     </Button>
   </div>
 </header>
 
-<Table>
-  <TableCaption>A list of your recent users.</TableCaption>
-  <TableHeader>
-    <TableRow>
-      <TableHead>Name</TableHead>
-      <TableHead>Email</TableHead>
-      <TableHead>Created at</TableHead>
-      <TableHead>Options</TableHead>
-    </TableRow>
-  </TableHeader>
-  <TableBody>
-    <template pp-for="user in users">
+<div class="relative mb-4">
+      <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-muted-foreground">
+        <Search class="size-4" />
+      </div>
+      <Input 
+        placeholder="Search users..." 
+        class="pl-9 w-64"
+        value="{searchQuery}"
+        oninput="handleSearch(event.target.value)"
+      />
+    </div>
+
+<div class="rounded-md border">
+  <Table>
+    <TableHeader>
       <TableRow>
-        <TableCell class="font-medium">{user.name}</TableCell>
-        <TableCell>{user.email}</TableCell>
-        <TableCell>{formatDate(user.createdAt)}</TableCell>
-        <TableCell>
-            <ButtonGroup>
-                <Button variant="outline" size="icon" onclick="editUser(user)">
-                    <Pencil class="size-4" />
-                </Button>
-                <Button variant="destructive" size="icon" onclick="deleteUser(user)">
-                    <Trash class="size-4" />
-                </Button>
-            </ButtonGroup>
+        <TableHead>Name</TableHead>
+        <TableHead>Email</TableHead>
+        <TableHead>Created at</TableHead>
+        <TableHead class="text-right">Options</TableHead>
+      </TableRow>
+    </TableHeader>
+    <TableBody>
+      <TableRow hidden="{!isLoading}">
+          <TableCell colspan="4" class="h-24 text-center text-muted-foreground">
+              Loading...
+          </TableCell>
+      </TableRow>
+
+      <template pp-for="user in users">
+        <TableRow hidden="{isLoading}">
+          <TableCell class="font-medium">{user.name}</TableCell>
+          <TableCell>{user.email}</TableCell>
+          <TableCell>{formatDate(user.createdAt)}</TableCell>
+          <TableCell class="text-right">
+             <div class="flex justify-end">
+                <ButtonGroup>
+                  <Button variant="outline" size="icon" onclick="editUser(user)">
+                      <Pencil class="size-4" />
+                  </Button>
+                  <Button variant="destructive" size="icon" onclick="deleteUser(user)">
+                      <Trash class="size-4" />
+                  </Button>
+                </ButtonGroup>
+             </div>
+          </TableCell>
+        </TableRow>
+      </template>
+      
+      <TableRow hidden="{users.length > 0 || isLoading}">
+        <TableCell colspan="4" class="h-24 text-center text-muted-foreground">
+          No results found.
         </TableCell>
       </TableRow>
-    </template>
-  </TableBody>
-</Table>
+    </TableBody>
+  </Table>
+</div>
+
+<div class="flex items-center justify-end space-x-2 py-4">
+  <div class="text-sm text-muted-foreground flex-1">
+    Page {pagination.currentPage} of {pagination.totalPages}
+  </div>
+  
+  <Button
+    variant="outline"
+    size="sm"
+    onclick="changePage(pagination.currentPage - 1)"
+    disabled="{!pagination.hasPrev || isLoading}"
+  >
+    <ChevronLeft class="size-4 mr-1" />
+    Previous
+  </Button>
+  
+  <Button
+    variant="outline"
+    size="sm"
+    onclick="changePage(pagination.currentPage + 1)"
+    disabled="{!pagination.hasNext || isLoading}"
+  >
+    Next
+    <ChevronRight class="size-4 ml-1" />
+  </Button>
+</div>
 
 <CreateUpdateDialog openDialog="{openCreateUpdateDialog}" setOpenDialog="{setOpenCreateUpdateDialog}" selectedUser="{selectedUser}" users="{users}" setUsers="{setUsers}" />
 <DeleteDialog openDialog="{openAlertDialog}" setOpenDialog="{setOpenAlertDialog}" selectedUser="{selectedUser}" users="{users}" setUsers="{setUsers}" />
 
 <script>
-  const usersJson = [[users | json]];
-  const [users, setUsers] = pp.state(usersJson);
+  // Initialize state from Server Data (SSR)
+  const initialUsers = JSON.parse('[[users | json]]');
+  const initialPagination = JSON.parse('[[pagination | json]]');
+
+  const [users, setUsers] = pp.state(initialUsers);
+  const [pagination, setPagination] = pp.state(initialPagination);
+  const [searchQuery, setSearchQuery] = pp.state(initialPagination.search);
+  const [isLoading, setIsLoading] = pp.state(false);
+  
+  // Dialog States
   const [openCreateUpdateDialog, setOpenCreateUpdateDialog] = pp.state(false);
   const [openAlertDialog, setOpenAlertDialog] = pp.state(false);
   const [selectedUser, setSelectedUser] = pp.state(null);
 
+  // Debounce timer for search
+  let searchTimeout;
+
   function formatDate(dateString) {
+    if (!dateString) return '';
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
   }
+
+  // --- RPC Logic ---
+
+  async function loadUsers(page, search) {
+    setIsLoading(true);
+    try {
+        const response = await pp.rpc("search_paginate_users", { 
+            page: page, 
+            search: search 
+        });
+        
+        setUsers(response.users);
+        setPagination(response.pagination);
+    } catch (error) {
+        console.error("Failed to load users:", error);
+    } finally {
+        setIsLoading(false);
+    }
+  }
+
+  function handleSearch(value) {
+    setSearchQuery(value);
+    
+    // Debounce to avoid spamming RPC on every keystroke
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        // Reset to page 1 on new search
+        loadUsers(1, value);
+    }, 300); 
+  }
+
+  function changePage(newPage) {
+    if (newPage < 1 || newPage > pagination.totalPages) return;
+    loadUsers(newPage, searchQuery);
+  }
+
+  // --- CRUD Actions ---
 
   function newUser() {
     setSelectedUser(null);
@@ -67,14 +172,21 @@
   }
 
   function editUser(user) {
-    console.log("Edit user:", user);
     setSelectedUser(user);
     setOpenCreateUpdateDialog(true);
   }
 
   function deleteUser(user) {
-    console.log("Delete user:", user);
     setSelectedUser(user);
     setOpenAlertDialog(true);
   }
+
+  // Optional: Refresh list after Dialog closes (to ensure consistency)
+  pp.effect(() => {
+    if (!openCreateUpdateDialog && !openAlertDialog) {
+        // You might want to reload data here to ensure sort order/pagination is correct
+        // loadUsers(pagination.currentPage, searchQuery);
+    }
+  }, [openCreateUpdateDialog, openAlertDialog]);
+
 </script>

@@ -14,9 +14,9 @@ async def create_update_user(
     password: str | None = None
 ):
     print("ID: ", id)
-    validated_id = Validate.cuid(id) if id else None
+    # validated_id = Validate.cuid(id) if id else None
     
-    print(f"Received data for user creation/update: id={validated_id}, name={name}, email={email}")
+    # print(f"Received data for user creation/update: id={validated_id}, name={name}, email={email}")
 
     # We type hint as dict[str, Any] to be more permissive,
     # but we will still need to cast it for Prisma's strict inputs.
@@ -31,11 +31,11 @@ async def create_update_user(
     if password:
         data["password"] = generate_password_hash(password)
 
-    if validated_id:
+    if id:
         # --- Update existing user ---
         # We use cast(Any, data) to tell the type checker to ignore the strict TypedDict requirement
         updated_user = await prisma.user.update(
-            where={"id": validated_id},
+            where={"id": id},
             data=cast(Any, data),
             omit={"password": True}
         )

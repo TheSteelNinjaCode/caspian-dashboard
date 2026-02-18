@@ -15,6 +15,61 @@
         "name": "setOpenDialog",
         "type": "str",
         "hasDefault": false
+      },
+      {
+        "name": "selectedUser",
+        "type": "str | None",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "users",
+        "type": "str | None",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "setUsers",
+        "type": "str | None",
+        "hasDefault": true,
+        "defaultValue": "None"
+      }
+    ]
+  },
+  {
+    "componentName": "DeleteDialog",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\app\\components\\dashboard\\users\\DeleteDialog.py",
+    "relativePath": "src/app/components/dashboard/users/DeleteDialog.py",
+    "importRoute": "src.app.components.dashboard.users.DeleteDialog",
+    "acceptsArbitraryProps": false,
+    "props": [
+      {
+        "name": "openDialog",
+        "type": "str",
+        "hasDefault": false
+      },
+      {
+        "name": "setOpenDialog",
+        "type": "str",
+        "hasDefault": false
+      },
+      {
+        "name": "selectedUser",
+        "type": "str | None",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "users",
+        "type": "str | None",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "setUsers",
+        "type": "str | None",
+        "hasDefault": true,
+        "defaultValue": "None"
       }
     ]
   },

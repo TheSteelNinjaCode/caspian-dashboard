@@ -1,0 +1,37 @@
+<!-- @import { AlertDialog } from ../../../../lib/maddex -->
+<!-- @import { AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from ../../../../lib/maddex/AlertDialog.py -->
+<div openDialog="[[openDialog]]" setOpenDialog="[[setOpenDialog]]" selectedUser="[[selectedUser]]" users="[[users]]" setUsers="[[setUsers]]">
+    <AlertDialog open="{openDialog}" onOpenChange="{setOpenDialog}">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete your account and remove your data from our servers.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onclick="deleteUserConfirmed()">{loading ? "Deleting..." : "Continue"}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <script>
+        const [loading, setLoading] = pp.state(false);
+
+        async function deleteUserConfirmed() {
+            setLoading(true);
+            const response = await pp.rpc("delete_user", { id: selectedUser.id });
+            console.log("Response from server:", response);
+
+            if (response.success) {
+            setUsers(users.filter(u => u.id !== response.user.id));
+            setOpenDialog(false);
+            } else {
+            alert("Failed to delete user: " + response.message);
+            }
+
+            setLoading(false);
+        }
+    </script>
+</div>

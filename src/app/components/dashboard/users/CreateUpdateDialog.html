@@ -1,14 +1,126 @@
-<!-- @import { Dialog } from ../../../../lib/maddex -->
-<!-- @import { DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from ../../../../lib/maddex/Dialog.py -->
-<Dialog open="[[openDialog]]" onOpenChange="[[setOpenDialog]]">
-  <DialogTrigger>Open Dialog Comp</DialogTrigger>
+<!-- @import { Button, Dialog, Field, Input, Label } from ../../../../lib/maddex -->
+<!-- @import { DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from ../../../../lib/maddex/Dialog.py -->
+<!-- @import FieldGroup from ../../../../lib/maddex/Field.py -->
+<div openDialog="[[openDialog]]" setOpenDialog="[[setOpenDialog]]" selectedUser="[[selectedUser]]" users="[[users]]" setUsers="[[setUsers]]">
+  <Dialog open="{openDialog}" onOpenChange="{setOpenDialog}">
+<form onsubmit="createUser(event)">
   <DialogContent>
     <DialogHeader>
-      <DialogTitle>Are you absolutely sure?</DialogTitle>
+      <DialogTitle>{isEditMode ? "Edit User" : "Create User"}</DialogTitle>
       <DialogDescription>
-        This action cannot be undone. This will permanently delete your account
-        and remove your data from our servers.
+        {isEditMode ? "Edit details. Leave password blank to keep current one." : "Fill out the form to create a new user."}
       </DialogDescription>
     </DialogHeader>
+    <FieldGroup>
+        <Field>
+            <Label for="name-input">Name</Label>
+            <Input
+                id="name-input"
+                name="name"
+                placeholder="Pedro Duarte"
+                value="{userName}"
+                oninput="setUserName(event.target.value)"
+            />
+        </Field>
+
+        <Field>
+            <Label for="email-input">Email</Label>
+            <Input
+                id="email-input"
+                name="email"
+                type="email"
+                placeholder="pedro@example.com"
+                value="{userEmail}"
+                oninput="setUserEmail(event.target.value)"
+            />
+        </Field>
+
+        <Field>
+            <Label for="password-input">Password</Label>
+            <Input
+                id="password-input"
+                name="password"
+                type="password"
+                placeholder="{isEditMode ? 'Leave blank to keep unchanged' : 'Secret password'}"
+                value="{userPassword}"
+                oninput="setUserPassword(event.target.value)"
+            />
+        </Field>
+    </FieldGroup>
+    <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
+          <Button type="submit" disabled="{loading}">{loading ? "Saving..." : "Save changes"}</Button>
+        </DialogFooter>
   </DialogContent>
+  </form>
 </Dialog>
+
+  <script>
+    const [isEditMode, setIsEditMode] = pp.state(false);
+    const [userName, setUserName] = pp.state("");
+    const [userEmail, setUserEmail] = pp.state("");
+    const [userPassword, setUserPassword] = pp.state("");
+    const [loading, setLoading] = pp.state(false);
+
+    pp.effect(() => {
+      if (selectedUser) {
+        setUserName(selectedUser.name);
+        setUserEmail(selectedUser.email);
+        setIsEditMode(true);
+      } else {
+        setUserName("");
+        setUserEmail("");
+        setIsEditMode(false);
+      }
+      setUserPassword("");
+    }, [selectedUser]);
+
+    async function createUser(e) {
+    e.preventDefault();
+    setLoading(true);
+    
+    // We can grab directly from state since we bound them, 
+    // or use FormData. Let's use state for cleanliness here.
+    const payload = {
+        id: selectedUser ? selectedUser.id : null,
+        name: userName,
+        email: userEmail,
+        password: userPassword
+    }
+
+    console.log("Sending payload:", payload);
+
+    const response = await pp.rpc("create_update_user", payload);
+    console.log("Response from server:", response);
+
+    if (response.success) {
+      if (isEditMode) {
+        setUsers(users.map(user => user.id === response.user.id ? response.user : user));
+      } else {
+        setUsers([...users, response.user]);
+      }
+      setOpenDialog(false);
+    } else {
+      alert("Failed to save user: " + (response.message || "Unknown error"));
+    }
+
+    setLoading(false);
+  }
+
+  async function deleteUserConfirmed() {
+    setLoading(true);
+    const response = await pp.rpc("delete_user", { id: selectedUser.id });
+    
+    if (response.success) {
+      setUsers(users.filter(user => user.id !== response.user.id));
+      setOpenAlertDialog(false);
+    } else {
+      alert("Failed to delete user: " + response.message);
+    }
+
+    setLoading(false);
+  }
+  </script>
+</div>

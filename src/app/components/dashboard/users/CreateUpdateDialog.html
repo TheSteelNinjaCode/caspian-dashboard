@@ -1,4 +1,4 @@
-<!-- @import { Button, Dialog, Field, Input, Label } from ../../../../lib/maddex -->
+<!-- @import { Button, Dialog, Field, Input, Label, Toast } from ../../../../lib/maddex -->
 <!-- @import { DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from ../../../../lib/maddex/Dialog.py -->
 <!-- @import FieldGroup from ../../../../lib/maddex/Field.py -->
 <div openDialog="[[openDialog]]" setOpenDialog="[[setOpenDialog]]" selectedUser="[[selectedUser]]" users="[[users]]" setUsers="[[setUsers]]">
@@ -57,12 +57,15 @@
   </form>
 </Dialog>
 
+<Toast toasts="{toasts}" onChange="{setToasts}" />
+
   <script>
     const [isEditMode, setIsEditMode] = pp.state(false);
     const [userName, setUserName] = pp.state("");
     const [userEmail, setUserEmail] = pp.state("");
     const [userPassword, setUserPassword] = pp.state("");
     const [loading, setLoading] = pp.state(false);
+    const [toasts, setToasts] = pp.state([]);
 
     pp.effect(() => {
       if (selectedUser) {
@@ -98,12 +101,14 @@
     if (response.success) {
       if (isEditMode) {
         setUsers(users.map(user => user.id === response.user.id ? response.user : user));
+        setToasts([...toasts, { description: "User updated successfully", type: "success" }]);
       } else {
         setUsers([...users, response.user]);
+        setToasts([...toasts, { description: "User created successfully", type: "success" }]);
       }
       setOpenDialog(false);
     } else {
-      alert("Failed to save user: " + (response.message || "Unknown error"));
+      setToasts([...toasts, { description: "Failed to save user: " + (response.message || "Unknown error"), type: "error" }]);
     }
 
     setLoading(false);
@@ -116,8 +121,9 @@
     if (response.success) {
       setUsers(users.filter(user => user.id !== response.user.id));
       setOpenAlertDialog(false);
+      setToasts([...toasts, { description: "User deleted successfully", type: "success" }]);
     } else {
-      alert("Failed to delete user: " + response.message);
+      setToasts([...toasts, { description: "Failed to delete user: " + (response.message || "Unknown error"), type: "error" }]);
     }
 
     setLoading(false);

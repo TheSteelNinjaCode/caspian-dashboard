@@ -1,0 +1,192 @@
+<!-- @import { Check, CircleAlert, Info, TriangleAlert, X } from ../ppicons -->
+<div [[attrs]]>
+  <ol
+    data-slot="toaster-viewport"
+    class="m-0 list-none p-0 w-full relative outline-none"
+    style="min-height: 80px" 
+    onmouseenter="handleMouseEnter()"
+    onmouseleave="handleMouseLeave()"
+  >
+    <template pp-for="(t, i) in toasts">
+      <li
+        data-slot="toast"
+        data-toast-id="{t.id}"
+        data-state="{t.open ? 'open' : 'closed'}"
+        class="{toastClass(t, i)}"
+        style="{toastStyle(t, i)}"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <div class="flex w-full items-start gap-2 p-2"> 
+          <div hidden="{!shouldShowIcon(t)}" class="mt-0.5 shrink-0">
+            <Check hidden="{t.type !== 'success'}" class="size-4 text-emerald-500" />
+            <TriangleAlert hidden="{t.type !== 'warning'}" class="size-4 text-amber-500" />
+            <Info hidden="{t.type !== 'info'}" class="size-4 text-sky-500" />
+            <CircleAlert hidden="{t.type !== 'error'}" class="size-4 text-red-500" />
+          </div>
+
+          <div class="grid gap-1 flex-1">
+            <div hidden="{!t.description}" class="text-sm opacity-90">
+              {t.description}
+            </div>
+            <div class="text-sm">
+                [[children]]
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="absolute right-2 top-2 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600"
+            onclick="dismiss(t.id)"
+          >
+            <X class="size-4" />
+          </button>
+        </div>
+      </li>
+    </template>
+  </ol>
+
+  <script>
+    const POSITION = "[[position]]";
+    const IS_TOP = POSITION.includes("top");
+    const MAX_TOASTS = Number("[[max_toasts]]") || 5;
+    const DEFAULT_DURATION = Number("[[duration]]") || 4000;
+    const RICH_COLORS = "[[rich_colors]]" === "True" || "[[rich_colors]]" === "true";
+    const [expanded, setExpanded] = pp.state(false);
+    const [isHovering, setIsHovering] = pp.state(false); 
+    const GAP = 14;
+    const TOAST_HEIGHT = 50; 
+    const SCALE_FACTOR = 0.05;
+    const timerMap = new Map();
+
+    function shouldShowIcon(t) {
+      return RICH_COLORS && ["success", "error", "warning", "info"].includes(t.type);
+    }
+
+    function toastStyle(t, i) {
+      const visibleToasts = toasts.filter((x) => x.open !== false);
+      const stackIndex = visibleToasts.indexOf(t);
+      const isClosed = stackIndex === -1; 
+      
+      const idx = isClosed ? 0 : stackIndex;
+      const offset = expanded ? idx * (TOAST_HEIGHT + GAP) : idx * GAP;
+      const scale = expanded ? 1 : 1 - idx * SCALE_FACTOR;
+      const sign = IS_TOP ? 1 : -1;
+      
+      const exitOffset = isClosed ? 20 : 0;
+      const translateY = offset * sign + exitOffset * sign;
+      const isVisible = idx < MAX_TOASTS;
+
+      return [
+        `position: absolute`,
+        IS_TOP ? "top: 0" : "bottom: 0",
+        "left: 0", "right: 0",
+        `z-index: ${isClosed ? 0 : 100 - idx}`,
+        `opacity: ${isClosed ? 0 : isVisible ? (expanded ? 1 : 1 - idx * 0.15) : 0}`,
+        `transform: translateY(${translateY}px) scale(${scale})`,
+        `transition: all 400ms cubic-bezier(0.16, 1, 0.3, 1)`,
+        `height: ${isVisible ? "auto" : "0px"}`,
+        `transform-origin: ${IS_TOP ? "top" : "bottom"} center`,
+        `pointer-events: ${isClosed ? "none" : "auto"}`,
+      ].join(";");
+    }
+
+    function toastClass(t, i) {
+       const base = "group relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-xl border p-3 shadow-lg transition-all before:absolute before:inset-0 before:-z-10 before:bg-background";
+       let variant = "bg-background text-foreground border-border";
+       
+       if (RICH_COLORS && t.type) {
+         if (t.type === "success") variant = "bg-emerald-50 text-emerald-900 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-50 dark:border-emerald-900";
+         else if (t.type === "error") variant = "bg-red-50 text-red-900 border-red-200 dark:bg-red-950 dark:text-red-50 dark:border-red-900";
+         else if (t.type === "warning") variant = "bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950 dark:text-amber-50 dark:border-amber-900";
+         else if (t.type === "info") variant = "bg-sky-50 text-sky-900 border-sky-200 dark:bg-sky-950 dark:text-sky-50 dark:border-sky-900";
+       }
+       const anim = t.open !== false ? "animate-in fade-in zoom-in-95 duration-300" : "duration-200";
+       return [base, variant, anim].join(" ");
+    }
+
+    window.handleMouseEnter = () => {
+        setExpanded(true);
+        setIsHovering(true);
+        toasts.forEach(t => pauseToast(t.id));
+    };
+
+    window.handleMouseLeave = () => {
+        setExpanded(false);
+        setIsHovering(false);
+        toasts.forEach(t => resumeTimer(t.id));
+    };
+
+    function updateParent(newToasts) {
+        if (typeof onChange === 'function') onChange(newToasts);
+    }
+
+    function dismiss(id) {
+      id = String(id);
+      if (timerMap.has(id)) {
+        clearTimeout(timerMap.get(id).timerId);
+        timerMap.delete(id);
+      }
+      const closingList = toasts.map(t => String(t.id) === id ? { ...t, open: false } : t);
+      updateParent(closingList);
+      setTimeout(() => {
+        const removedList = toasts.filter(t => String(t.id) !== id);
+        updateParent(removedList);
+      }, 400);
+    }
+    
+    function startTimer(id, duration) {
+      if (duration <= 0 && duration !== Infinity) {
+          dismiss(id);
+          return;
+      }
+
+      if (isHovering) {
+         timerMap.set(id, { start: Date.now(), remaining: duration, timerId: null });
+         return;
+      }
+
+      if (timerMap.has(id)) clearTimeout(timerMap.get(id).timerId);
+
+      const meta = {
+        start: Date.now(),
+        remaining: duration,
+        timerId: setTimeout(() => dismiss(id), duration),
+      };
+      timerMap.set(id, meta);
+    }
+
+    function pauseToast(id) {
+      id = String(id);
+      const meta = timerMap.get(id);
+      if (!meta || meta.timerId === null) return; 
+
+      clearTimeout(meta.timerId);
+      const elapsed = Date.now() - meta.start;
+      meta.remaining = Math.max(0, meta.remaining - elapsed);
+      timerMap.set(id, { ...meta, timerId: null });
+    }
+
+    function resumeTimer(id) {
+      id = String(id);
+      const meta = timerMap.get(id);
+      if (!meta || meta.timerId !== null) return;
+      
+      if (meta.remaining <= 0) {
+          dismiss(id);
+          return;
+      }
+      
+      startTimer(id, meta.remaining);
+    }
+
+    pp.effect(() => {
+      toasts.forEach((t) => {
+        const tId = String(t.id);
+        if (t.open !== false && !timerMap.has(tId)) {
+          startTimer(tId, t.duration || DEFAULT_DURATION);
+        }
+      });
+    }, [toasts]);
+  </script>
+</div>

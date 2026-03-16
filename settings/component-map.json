@@ -948,6 +948,59 @@
     "props": []
   },
   {
+    "componentName": "Toast",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Toast.py",
+    "relativePath": "src/lib/maddex/Toast.py",
+    "importRoute": "src.lib.maddex.Toast",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "toasts",
+        "type": "str | None",
+        "hasDefault": true,
+        "defaultValue": "{[]}"
+      },
+      {
+        "name": "onChange",
+        "type": "str",
+        "hasDefault": true,
+        "defaultValue": ""
+      },
+      {
+        "name": "position",
+        "type": "ToasterPosition",
+        "hasDefault": true,
+        "defaultValue": "bottom-right",
+        "options": [
+          "top-left",
+          "top-center",
+          "top-right",
+          "bottom-left",
+          "bottom-center",
+          "bottom-right"
+        ]
+      },
+      {
+        "name": "maxToasts",
+        "type": "int",
+        "hasDefault": true,
+        "defaultValue": "5"
+      },
+      {
+        "name": "duration",
+        "type": "int",
+        "hasDefault": true,
+        "defaultValue": "4000"
+      },
+      {
+        "name": "richColors",
+        "type": "bool | None",
+        "hasDefault": true,
+        "defaultValue": "True"
+      }
+    ]
+  },
+  {
     "componentName": "ArrowLeft",
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\ppicons\\ArrowLeft.py",
     "relativePath": "src/lib/ppicons/ArrowLeft.py",

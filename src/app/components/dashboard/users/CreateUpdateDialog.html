@@ -1,63 +1,66 @@
 <!-- @import { Button, Dialog, Field, Input, Label, Toast } from ../../../../lib/maddex -->
 <!-- @import { DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from ../../../../lib/maddex/Dialog.py -->
 <!-- @import FieldGroup from ../../../../lib/maddex/Field.py -->
-<div openDialog="[[openDialog]]" setOpenDialog="[[setOpenDialog]]" selectedUser="[[selectedUser]]" users="[[users]]" setUsers="[[setUsers]]">
-  <Dialog open="{openDialog}" onOpenChange="{setOpenDialog}">
-<form onsubmit="createUser(event)">
-  <DialogContent>
-    <DialogHeader>
-      <DialogTitle>{isEditMode ? "Edit User" : "Create User"}</DialogTitle>
-      <DialogDescription>
-        {isEditMode ? "Edit details. Leave password blank to keep current one." : "Fill out the form to create a new user."}
-      </DialogDescription>
-    </DialogHeader>
-    <FieldGroup>
-        <Field>
+<div openDialog="[[openDialog]]"
+     setOpenDialog="[[setOpenDialog]]"
+     selectedUser="[[selectedUser]]"
+     users="[[users]]"
+     setUsers="[[setUsers]]">
+  <Dialog open="{openDialog}"
+          onOpenChange="{setOpenDialog}">
+    <form onsubmit="createUser(event)">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{isEditMode ? "Edit User" : "Create User"}</DialogTitle>
+          <DialogDescription>
+            {isEditMode ?
+            "Edit details. Leave password blank to keep current one." : "Fill out the form to create a new user."}
+          </DialogDescription>
+        </DialogHeader>
+        <FieldGroup>
+          <Field>
             <Label for="name-input">Name</Label>
-            <Input
-                id="name-input"
-                name="name"
-                placeholder="Pedro Duarte"
-                value="{userName}"
-                oninput="setUserName(event.target.value)"
-            />
-        </Field>
+            <Input id="name-input"
+                   name="name"
+                   placeholder="Pedro Duarte"
+                   value="{userName}"
+                   oninput="setUserName(event.target.value)" />
+          </Field>
 
-        <Field>
+          <Field>
             <Label for="email-input">Email</Label>
-            <Input
-                id="email-input"
-                name="email"
-                type="email"
-                placeholder="pedro@example.com"
-                value="{userEmail}"
-                oninput="setUserEmail(event.target.value)"
-            />
-        </Field>
+            <Input id="email-input"
+                   name="email"
+                   type="email"
+                   placeholder="pedro@example.com"
+                   value="{userEmail}"
+                   oninput="setUserEmail(event.target.value)" />
+            <p class="text-destructive">{emailExist ? "Email already in use by another user." : ""}</p>
+          </Field>
 
-        <Field>
+          <Field>
             <Label for="password-input">Password</Label>
-            <Input
-                id="password-input"
-                name="password"
-                type="password"
-                placeholder="{isEditMode ? 'Leave blank to keep unchanged' : 'Secret password'}"
-                value="{userPassword}"
-                oninput="setUserPassword(event.target.value)"
-            />
-        </Field>
-    </FieldGroup>
-    <DialogFooter>
+            <Input id="password-input"
+                   name="password"
+                   type="password"
+                   placeholder="{isEditMode ? 'Leave blank to keep unchanged' : 'Secret password'}"
+                   value="{userPassword}"
+                   oninput="setUserPassword(event.target.value)" />
+          </Field>
+        </FieldGroup>
+        <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline">Cancel</Button>
           </DialogClose>
-          <Button type="submit" disabled="{loading}">{loading ? "Saving..." : "Save changes"}</Button>
+          <Button type="submit"
+                  disabled="{loading}">{loading ? "Saving..." : "Save changes"}</Button>
         </DialogFooter>
-  </DialogContent>
-  </form>
-</Dialog>
+      </DialogContent>
+    </form>
+  </Dialog>
 
-<Toast toasts="{toasts}" onChange="{setToasts}" />
+  <Toast toasts="{toasts}"
+         onChange="{setToasts}" />
 
   <script>
     const [isEditMode, setIsEditMode] = pp.state(false);
@@ -66,6 +69,7 @@
     const [userPassword, setUserPassword] = pp.state("");
     const [loading, setLoading] = pp.state(false);
     const [toasts, setToasts] = pp.state([]);
+    const [emailExist, setEmailExist] = pp.state(false);
 
     pp.effect(() => {
       if (selectedUser) {
@@ -81,52 +85,66 @@
     }, [selectedUser]);
 
     async function createUser(e) {
-    e.preventDefault();
-    setLoading(true);
-    
-    // We can grab directly from state since we bound them, 
-    // or use FormData. Let's use state for cleanliness here.
-    const payload = {
+      e.preventDefault();
+      setLoading(true);
+
+      // We can grab directly from state since we bound them, 
+      // or use FormData. Let's use state for cleanliness here.
+      const payload = {
         id: selectedUser ? selectedUser.id : null,
         name: userName,
         email: userEmail,
         password: userPassword
-    }
-
-    console.log("Sending payload:", payload);
-
-    const response = await pp.rpc("create_update_user", payload);
-    console.log("Response from server:", response);
-
-    if (response.success) {
-      if (isEditMode) {
-        setUsers(users.map(user => user.id === response.user.id ? response.user : user));
-        setToasts([...toasts, { description: "User updated successfully", type: "success" }]);
-      } else {
-        setUsers([...users, response.user]);
-        setToasts([...toasts, { description: "User created successfully", type: "success" }]);
       }
-      setOpenDialog(false);
-    } else {
-      setToasts([...toasts, { description: "Failed to save user: " + (response.message || "Unknown error"), type: "error" }]);
+
+      console.log("Sending payload:", payload);
+      try {
+        const response = await pp.rpc("create_update_user", payload);
+        console.log("Response from server:", response);
+
+        if (response?.emailExist) {
+          setEmailExist(true);
+          setToasts([...toasts, { description: "Email already in use by another user.", type: "error" }]);
+          setLoading(false);
+          return;
+        } else {
+          setEmailExist(false);
+        }
+
+        if (response.success) {
+          if (isEditMode) {
+            setUsers(users.map(user => user.id === response.user.id ? response.user : user));
+            setToasts([...toasts, { description: "User updated successfully", type: "success" }]);
+          } else {
+            setUsers([...users, response.user]);
+            setToasts([...toasts, { description: "User created successfully", type: "success" }]);
+          }
+          setOpenDialog(false);
+        } else {
+          setToasts([...toasts, { description: "Failed to save user: " + (response.message || "Unknown error"), type: "error" }]);
+        }
+
+        setLoading(false);
+      } catch (error) {
+        console.error("Error during RPC call:", error);
+        setToasts([...toasts, { description: "An unexpected error occurred. Please try again.", type: "error" }]);
+        setLoading(false);
+      }
     }
 
-    setLoading(false);
-  }
+    async function deleteUserConfirmed() {
+      setLoading(true);
+      const response = await pp.rpc("delete_user", { id: selectedUser.id });
 
-  async function deleteUserConfirmed() {
-    setLoading(true);
-    const response = await pp.rpc("delete_user", { id: selectedUser.id });
-    
-    if (response.success) {
-      setUsers(users.filter(user => user.id !== response.user.id));
-      setOpenAlertDialog(false);
-      setToasts([...toasts, { description: "User deleted successfully", type: "success" }]);
-    } else {
-      setToasts([...toasts, { description: "Failed to delete user: " + (response.message || "Unknown error"), type: "error" }]);
+      if (response.success) {
+        setUsers(users.filter(user => user.id !== response.user.id));
+        setOpenAlertDialog(false);
+        setToasts([...toasts, { description: "User deleted successfully", type: "success" }]);
+      } else {
+        setToasts([...toasts, { description: "Failed to delete user: " + (response.message || "Unknown error"), type: "error" }]);
+      }
+
+      setLoading(false);
     }
-
-    setLoading(false);
-  }
   </script>
 </div>

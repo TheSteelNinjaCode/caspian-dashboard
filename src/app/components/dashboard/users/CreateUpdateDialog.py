@@ -14,6 +14,11 @@ async def create_update_user(
     password: str | None = None
 ):
     validated_user_id = Validate.cuid(id) if id else None
+    validated_email = Validate.email(email) if email else None
+
+    email_exists = await prisma.user.find_first(where={"email": validated_email}) if validated_email else None
+    if email_exists and (not validated_user_id or email_exists.id != validated_user_id):
+        return {"success": False, "error": "Email already in use by another user.", "emailExist": True}
 
     # We type hint as dict[str, Any] to be more permissive,
     # but we will still need to cast it for Prisma's strict inputs.

@@ -455,6 +455,9 @@
   .h-12 {
     height: calc(var(--spacing) * 12);
   }
+  .h-15\.25 {
+    height: calc(var(--spacing) * 15.25);
+  }
   .h-24 {
     height: calc(var(--spacing) * 24);
   }
@@ -1302,11 +1305,6 @@
   .group-data-\[collapsible\=icon\]\:p-2\! {
     &:is(:where(.group)[data-collapsible="icon"] *) {
       padding: calc(var(--spacing) * 2) !important;
-    }
-  }
-  .group-data-\[collapsible\=icon\]\:py-2 {
-    &:is(:where(.group)[data-collapsible="icon"] *) {
-      padding-block: calc(var(--spacing) * 2);
     }
   }
   .group-data-\[collapsible\=icon\]\:opacity-0 {

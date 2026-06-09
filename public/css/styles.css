@@ -548,6 +548,9 @@
   .bg-blue-600 {
     background-color: var(--color-blue-600);
   }
+  .bg-border {
+    background-color: var(--border);
+  }
   .bg-card {
     background-color: var(--card);
   }
@@ -1398,6 +1401,26 @@
   .data-\[invalid\=true\]\:text-destructive {
     &[data-invalid="true"] {
       color: var(--destructive);
+    }
+  }
+  .data-\[orientation\=horizontal\]\:h-px {
+    &[data-orientation="horizontal"] {
+      height: 1px;
+    }
+  }
+  .data-\[orientation\=horizontal\]\:w-full {
+    &[data-orientation="horizontal"] {
+      width: 100%;
+    }
+  }
+  .data-\[orientation\=vertical\]\:h-full {
+    &[data-orientation="vertical"] {
+      height: 100%;
+    }
+  }
+  .data-\[orientation\=vertical\]\:w-px {
+    &[data-orientation="vertical"] {
+      width: 1px;
     }
   }
   .data-\[slot\=checkbox-group\]\:gap-3 {

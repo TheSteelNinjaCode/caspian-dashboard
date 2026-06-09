@@ -273,6 +273,31 @@
     ]
   },
   {
+    "componentName": "Separator",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Separator.py",
+    "relativePath": "src/lib/maddex/Separator.py",
+    "importRoute": "src.lib.maddex.Separator",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "orientation",
+        "type": "SeparatorOrientation",
+        "hasDefault": true,
+        "defaultValue": "horizontal",
+        "options": [
+          "horizontal",
+          "vertical"
+        ]
+      },
+      {
+        "name": "decorative",
+        "type": "bool",
+        "hasDefault": true,
+        "defaultValue": "True"
+      }
+    ]
+  },
+  {
     "componentName": "Slot",
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Slot.py",
     "relativePath": "src/lib/maddex/Slot.py",

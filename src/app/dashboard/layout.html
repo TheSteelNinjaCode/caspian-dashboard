@@ -5,12 +5,12 @@
 <div class="min-h-screen bg-muted/30 text-foreground">
   <x-sidebar-provider defaultOpen="False">
     <x-sidebar collapsible="icon">
-      <x-sidebar-header class="p-3 md:items-center xl:items-start">
-        <div class="flex items-center gap-2 md:justify-center xl:justify-start">
+      <x-sidebar-header class="p-3 md:items-center xl:items-start group-data-[collapsible=icon]:items-center">
+        <div class="flex w-full items-center gap-2 md:justify-center xl:justify-start group-data-[collapsible=icon]:justify-center">
           <div class="flex size-9 items-center justify-center rounded-md bg-primary/15 text-primary">
             <x-panel-left class="size-4" />
           </div>
-          <div>
+          <div class="group-data-[collapsible=icon]:hidden">
           <p class="font-semibold">Caspian Dashboard</p>
         </div>
         </div>
@@ -24,35 +24,51 @@
           <x-sidebar-group-content>
             <x-sidebar-menu>
               <x-sidebar-menu-item>
-                <x-sidebar-menu-button isActive="True" tooltip="Overview">
+                <x-sidebar-menu-button
+                  isActive="True"
+                  tooltip="Overview"
+                  class="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
+                >
                   <x-circle class="size-4" />
                   <span>Overview</span>
                 </x-sidebar-menu-button>
               </x-sidebar-menu-item>
 
               <x-sidebar-menu-item>
-                <x-sidebar-menu-button tooltip="Analytics">
+                <x-sidebar-menu-button
+                  tooltip="Analytics"
+                  class="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
+                >
                   <x-check class="size-4" />
                   <span>Analytics</span>
                 </x-sidebar-menu-button>
               </x-sidebar-menu-item>
 
               <x-sidebar-menu-item>
-                <x-sidebar-menu-button tooltip="Orders">
+                <x-sidebar-menu-button
+                  tooltip="Orders"
+                  class="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
+                >
                   <x-minus class="size-4" />
                   <span>Orders</span>
                 </x-sidebar-menu-button>
               </x-sidebar-menu-item>
 
               <x-sidebar-menu-item>
-                <x-sidebar-menu-button tooltip="Customers">
+                <x-sidebar-menu-button
+                  tooltip="Customers"
+                  class="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
+                >
                   <x-circle class="size-4" />
                   <span>Customers</span>
                 </x-sidebar-menu-button>
               </x-sidebar-menu-item>
 
               <x-sidebar-menu-item>
-                <x-sidebar-menu-button tooltip="Settings">
+                <x-sidebar-menu-button
+                  tooltip="Settings"
+                  class="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
+                >
                   <x-ellipsis class="size-4" />
                   <span>Settings</span>
                 </x-sidebar-menu-button>
@@ -77,7 +93,7 @@
       <header class="sticky top-0 z-20 border-b border-border bg-background/90 px-4 py-3 backdrop-blur md:px-6">
         <div class="flex items-center justify-between gap-3">
           <div class="flex items-center gap-3">
-            <x-sidebar-trigger class="md:hidden" />
+            <x-sidebar-trigger />
 
             <nav class="flex items-center gap-2 text-sm text-muted-foreground" aria-label="Breadcrumb">
               <a href="." class="hover:text-foreground">Dashboard</a>
@@ -109,42 +125,4 @@
     </x-sidebar-inset>
   </x-sidebar-provider>
 
-  <script>
-    const DESKTOP_EXPANDED_QUERY = "(min-width: 1280px)";
-
-    pp.effect(() => {
-      if (typeof window === "undefined") {
-        return undefined;
-      }
-
-      const provider = document.querySelector('[data-sidebar-provider="true"]');
-      if (!(provider instanceof HTMLElement)) {
-        return undefined;
-      }
-
-      const media = window.matchMedia(DESKTOP_EXPANDED_QUERY);
-
-      const syncSidebarState = () => {
-        provider.dispatchEvent(
-          new CustomEvent("sidebar-open-change", {
-            bubbles: true,
-            detail: {
-              open: media.matches,
-              mobile: false,
-            },
-          }),
-        );
-      };
-
-      syncSidebarState();
-
-      if (typeof media.addEventListener === "function") {
-        media.addEventListener("change", syncSidebarState);
-        return () => media.removeEventListener("change", syncSidebarState);
-      }
-
-      media.addListener(syncSidebarState);
-      return () => media.removeListener(syncSidebarState);
-    }, []);
-  </script>
 </div>

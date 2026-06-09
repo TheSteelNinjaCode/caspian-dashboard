@@ -1263,6 +1263,16 @@
       width: calc(var(--sidebar-width-icon) + (calc(var(--spacing) * 4)));
     }
   }
+  .group-data-\[collapsible\=icon\]\:items-center {
+    &:is(:where(.group)[data-collapsible="icon"] *) {
+      align-items: center;
+    }
+  }
+  .group-data-\[collapsible\=icon\]\:justify-center {
+    &:is(:where(.group)[data-collapsible="icon"] *) {
+      justify-content: center;
+    }
+  }
   .group-data-\[collapsible\=icon\]\:overflow-hidden {
     &:is(:where(.group)[data-collapsible="icon"] *) {
       overflow: hidden;
@@ -2735,6 +2745,13 @@
   .\[\&\>a\:hover\]\:text-primary {
     &>a:hover {
       color: var(--primary);
+    }
+  }
+  .group-data-\[collapsible\=icon\]\:\[\&\>span\]\:hidden {
+    &:is(:where(.group)[data-collapsible="icon"] *) {
+      &>span {
+        display: none;
+      }
     }
   }
   .\[\&\>span\:last-child\]\:truncate {

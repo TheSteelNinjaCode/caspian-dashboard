@@ -32,7 +32,7 @@ async def signin(email: str, password: str):
         return {"success": False, "message": "Invalid email or password."}
 
     user_data = user.to_dict(omit={'password': True})
-    return auth.sign_in(data=user_data)
+    return auth.sign_in(data=user_data, redirect_to=True)
 
 
 def page():

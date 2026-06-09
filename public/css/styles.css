@@ -1237,6 +1237,11 @@
       text-wrap: balance;
     }
   }
+  .group-data-\[collapsible\=icon\]\:mx-auto {
+    &:is(:where(.group)[data-collapsible="icon"] *) {
+      margin-inline: auto;
+    }
+  }
   .group-data-\[collapsible\=icon\]\:-mt-8 {
     &:is(:where(.group)[data-collapsible="icon"] *) {
       margin-top: calc(var(--spacing) * -8);
@@ -1245,6 +1250,12 @@
   .group-data-\[collapsible\=icon\]\:hidden {
     &:is(:where(.group)[data-collapsible="icon"] *) {
       display: none;
+    }
+  }
+  .group-data-\[collapsible\=icon\]\:size-8 {
+    &:is(:where(.group)[data-collapsible="icon"] *) {
+      width: calc(var(--spacing) * 8);
+      height: calc(var(--spacing) * 8);
     }
   }
   .group-data-\[collapsible\=icon\]\:size-8\! {
@@ -1256,6 +1267,11 @@
   .group-data-\[collapsible\=icon\]\:w-\(--sidebar-width-icon\) {
     &:is(:where(.group)[data-collapsible="icon"] *) {
       width: var(--sidebar-width-icon);
+    }
+  }
+  .group-data-\[collapsible\=icon\]\:w-8 {
+    &:is(:where(.group)[data-collapsible="icon"] *) {
+      width: calc(var(--spacing) * 8);
     }
   }
   .group-data-\[collapsible\=icon\]\:w-\[calc\(var\(--sidebar-width-icon\)\+\(--spacing\(4\)\)\)\] {
@@ -1286,6 +1302,11 @@
   .group-data-\[collapsible\=icon\]\:p-2\! {
     &:is(:where(.group)[data-collapsible="icon"] *) {
       padding: calc(var(--spacing) * 2) !important;
+    }
+  }
+  .group-data-\[collapsible\=icon\]\:py-2 {
+    &:is(:where(.group)[data-collapsible="icon"] *) {
+      padding-block: calc(var(--spacing) * 2);
     }
   }
   .group-data-\[collapsible\=icon\]\:opacity-0 {

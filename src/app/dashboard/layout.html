@@ -3,11 +3,11 @@
 <!-- @import { PanelLeft, Search, ChevronRight, Calendar, Circle, Check, Minus, Ellipsis } from ../../lib/ppicons -->
 
 <div class="min-h-screen bg-muted/30 text-foreground">
-  <x-sidebar-provider defaultOpen="False">
+  <x-sidebar-provider defaultOpen="False" style="--sidebar-width-icon: 3.75rem;">
     <x-sidebar collapsible="icon">
-      <x-sidebar-header class="p-3 md:items-center xl:items-start group-data-[collapsible=icon]:items-center">
+      <x-sidebar-header class="p-3 md:items-center xl:items-start group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:py-2">
         <div class="flex w-full items-center gap-2 md:justify-center xl:justify-start group-data-[collapsible=icon]:justify-center">
-          <div class="flex size-9 items-center justify-center rounded-md bg-primary/15 text-primary">
+          <div class="flex size-9 items-center justify-center rounded-md bg-primary/15 text-primary group-data-[collapsible=icon]:size-8">
             <x-panel-left class="size-4" />
           </div>
           <div class="group-data-[collapsible=icon]:hidden">
@@ -27,7 +27,7 @@
                 <x-sidebar-menu-button
                   isActive="True"
                   tooltip="Overview"
-                  class="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
+                  class="group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
                 >
                   <x-circle class="size-4" />
                   <span>Overview</span>
@@ -37,7 +37,7 @@
               <x-sidebar-menu-item>
                 <x-sidebar-menu-button
                   tooltip="Analytics"
-                  class="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
+                  class="group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
                 >
                   <x-check class="size-4" />
                   <span>Analytics</span>
@@ -47,7 +47,7 @@
               <x-sidebar-menu-item>
                 <x-sidebar-menu-button
                   tooltip="Orders"
-                  class="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
+                  class="group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
                 >
                   <x-minus class="size-4" />
                   <span>Orders</span>
@@ -57,7 +57,7 @@
               <x-sidebar-menu-item>
                 <x-sidebar-menu-button
                   tooltip="Customers"
-                  class="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
+                  class="group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
                 >
                   <x-circle class="size-4" />
                   <span>Customers</span>
@@ -67,7 +67,7 @@
               <x-sidebar-menu-item>
                 <x-sidebar-menu-button
                   tooltip="Settings"
-                  class="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
+                  class="group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
                 >
                   <x-ellipsis class="size-4" />
                   <span>Settings</span>

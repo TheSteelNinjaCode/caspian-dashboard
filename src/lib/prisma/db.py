@@ -1,0 +1,8159 @@
+"""Auto-generated Async Prisma-style Database Client - Direct SQL for FastAPI"""
+import os
+import json
+import asyncio
+import inspect
+from enum import Enum as PyEnum
+from pathlib import Path
+from typing import Optional, Dict, Any, List, Callable, AsyncGenerator, Union, Tuple, Mapping, Sequence, cast, Set, Awaitable
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from dotenv import load_dotenv
+import contextvars
+
+import aiosqlite
+from aiosqlite import Connection, Cursor
+
+from .models import (
+    User, UserRole,
+    UserWhereInput, UserWhereUniqueInput, UserSelect, UserOmit, UserInclude, UserOrderBy, UserCreateInput, UserUpdateInput, UserRoleWhereInput, UserRoleWhereUniqueInput, UserRoleSelect, UserRoleOmit, UserRoleInclude, UserRoleOrderBy, UserRoleCreateInput, UserRoleUpdateInput,
+    generate_cuid,
+    generate_uuid,
+    generate_nanoid,
+    generate_ulid,
+    utc_now_str,
+    get_datetime_value,
+    normalize_datetime_field_value,
+    SelectDict,
+    IncludeDict,
+    DbNull,
+    JsonNull,
+    AnyNull,
+    is_db_null,
+    is_json_null,
+    is_any_null,
+)
+
+load_dotenv()
+
+
+async def _await_if_needed(value: Any) -> Any:
+    if inspect.isawaitable(value):
+        return await value
+    return value
+
+
+async def _connection_is_usable(conn: Connection) -> bool:
+    state = getattr(conn, "is_closed", None)
+    if callable(state) and bool(state()):
+        return False
+    if state is not None and not callable(state) and bool(state):
+        return False
+
+    fallback = getattr(conn, "closed", None)
+    if callable(fallback) and bool(fallback()):
+        return False
+    if fallback is not None and not callable(fallback) and bool(fallback):
+        return False
+
+    try:
+        fetchval = getattr(conn, "fetchval", None)
+        if callable(fetchval):
+            await _await_if_needed(fetchval("SELECT 1"))
+            return True
+
+        execute = getattr(conn, "execute", None)
+        if callable(execute):
+            cursor = await _await_if_needed(execute("SELECT 1"))
+            if cursor is not None:
+                fetchone = getattr(cursor, "fetchone", None)
+                if callable(fetchone):
+                    await _await_if_needed(fetchone())
+
+                close_cursor = getattr(cursor, "close", None)
+                if callable(close_cursor):
+                    await _await_if_needed(close_cursor())
+            return True
+
+        cursor_factory = getattr(conn, "cursor", None)
+        if callable(cursor_factory):
+            cursor = await _await_if_needed(cursor_factory())
+
+            execute = getattr(cursor, "execute", None)
+            if callable(execute):
+                await _await_if_needed(execute("SELECT 1"))
+
+            fetchone = getattr(cursor, "fetchone", None)
+            if callable(fetchone):
+                await _await_if_needed(fetchone())
+
+            close_cursor = getattr(cursor, "close", None)
+            if callable(close_cursor):
+                await _await_if_needed(close_cursor())
+    except Exception:
+        return False
+
+    return True
+
+
+class AsyncConnectionPool:
+    """Async connection pool for database connections"""
+
+    def __init__(
+        self,
+        create_conn: Callable[[], Awaitable[Connection]],
+        size: int = 5
+    ) -> None:
+        self._create = create_conn
+        self._size = size
+        self._pool: asyncio.Queue[Connection] = asyncio.Queue(maxsize=size)
+        self._lock = asyncio.Lock()
+        self._initialized = False
+        self._connections: List[Connection] = []
+
+    def _is_closed(self, conn: Connection) -> bool:
+        state = getattr(conn, "is_closed", None)
+        if callable(state):
+            return bool(state())
+        if state is not None:
+            return bool(state)
+
+        fallback = getattr(conn, "closed", None)
+        if callable(fallback):
+            return bool(fallback())
+        if fallback is not None:
+            return bool(fallback)
+
+        return False
+
+    async def _close_connection(self, conn: Connection) -> None:
+        # Drivers differ in whether close() returns an awaitable or closes immediately.
+        if self._is_closed(conn):
+            return
+
+        try:
+            close_result = conn.close()
+            if inspect.isawaitable(close_result):
+                await cast(Awaitable[Any], close_result)
+        except Exception:
+            terminate = getattr(conn, "terminate", None)
+            if callable(terminate):
+                terminate()
+
+    async def _discard_connection(self, conn: Connection, *, force_terminate: bool = False) -> None:
+        if conn in self._connections:
+            self._connections.remove(conn)
+
+        if not self._is_closed(conn):
+            try:
+                if force_terminate:
+                    terminate = getattr(conn, "terminate", None)
+                    if callable(terminate):
+                        terminate()
+                        return
+                await self._close_connection(conn)
+            except Exception:
+                pass
+
+    async def _replace_connection(self, conn: Connection) -> Connection:
+        await self._discard_connection(conn, force_terminate=True)
+        new_conn = await self._create()
+        self._connections.append(new_conn)
+        return new_conn
+
+    async def _init_pool(self) -> None:
+        if self._initialized:
+            return
+        async with self._lock:
+            if self._initialized:
+                return
+            for _ in range(self._size):
+                conn = await self._create()
+                self._connections.append(conn)
+                await self._pool.put(conn)
+            self._initialized = True
+
+    async def get(self) -> Connection:
+        await self._init_pool()
+        conn = await self._pool.get()
+        if not await _connection_is_usable(conn):
+            return await self._replace_connection(conn)
+        return conn
+
+    async def put(self, conn: Connection) -> None:
+        if not await _connection_is_usable(conn):
+            conn = await self._replace_connection(conn)
+
+        try:
+            self._pool.put_nowait(conn)
+        except asyncio.QueueFull:
+            await self._discard_connection(conn)
+
+    async def close_all(self) -> None:
+        for conn in list(self._connections):
+            try:
+                await self._discard_connection(conn, force_terminate=True)
+            except Exception:
+                pass
+
+        while True:
+            try:
+                self._pool.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+
+        self._pool = asyncio.Queue(maxsize=self._size)
+        self._connections.clear()
+        self._initialized = False
+
+
+class PreparedStatementCache:
+    """LRU cache for prepared SQL statements"""
+
+    def __init__(self, max_size: int = 100) -> None:
+        from collections import OrderedDict
+        self._cache: "OrderedDict[str, str]" = OrderedDict()
+        self._max_size = max_size
+
+    def get(self, key: str) -> Optional[str]:
+        if key in self._cache:
+            self._cache.move_to_end(key)
+            return self._cache[key]
+        return None
+
+    def set(self, key: str, sql: str) -> None:
+        if key in self._cache:
+            self._cache.move_to_end(key)
+        else:
+            if len(self._cache) >= self._max_size:
+                self._cache.popitem(last=False)
+            self._cache[key] = sql
+
+    def clear(self) -> None:
+        self._cache.clear()
+
+
+class RecordNotFoundError(Exception):
+    """Raised when a required record is not found"""
+    pass
+
+
+class SQLBuilder:
+    """Build SQL queries from Prisma-style inputs"""
+
+    PROVIDER = "sqlite"
+    PARAM_STYLE = "?"
+
+    @classmethod
+    def placeholder(cls, index: int = 0) -> str:
+        if cls.PROVIDER == "postgresql":
+            return f"${index + 1}"
+        return cls.PARAM_STYLE
+
+    @classmethod
+    def quote_identifier(cls, name: str) -> str:
+        """Quote an identifier for the configured SQL provider."""
+        quote = chr(96) if cls.PROVIDER == "mysql" else chr(34)
+        escaped = name.replace(quote, quote + quote)
+        return f"{quote}{escaped}{quote}"
+
+    @classmethod
+    def column_ref(cls, column: str, table: str = "") -> str:
+        if table:
+            return f"{cls.quote_identifier(table)}.{cls.quote_identifier(column)}"
+        return cls.quote_identifier(column)
+
+    @classmethod
+    def sql_string_literal(cls, value: str) -> str:
+        return "'" + value.replace("'", "''") + "'"
+
+    @classmethod
+    def supports_json_path_sql(cls, path: Optional[str]) -> bool:
+        tokens = parse_json_path(path)
+        if not tokens:
+            return False
+
+        for token in tokens:
+            if isinstance(token, int):
+                if token < 0:
+                    return False
+                continue
+
+            token_text = str(token)
+            if not token_text.replace("_", "").isalnum():
+                return False
+
+        return True
+
+    @classmethod
+    def json_path_text_expr(cls, column: str, path: str, table: str = "") -> str:
+        col = cls.column_ref(column, table)
+        if cls.PROVIDER == "postgresql":
+            tokens = [str(token) for token in parse_json_path(path)]
+            path_literal = "'{" + ",".join(tokens) + "}'"
+            return f"({col} #>> {path_literal})"
+        if cls.PROVIDER == "mysql":
+            return f"JSON_UNQUOTE(JSON_EXTRACT({col}, {cls.sql_string_literal(path)}))"
+        return f"CAST(json_extract({col}, {cls.sql_string_literal(path)}) AS TEXT)"
+
+    @classmethod
+    def mapped_column_name(
+        cls,
+        field: str,
+        field_map: Optional[Mapping[str, str]] = None,
+    ) -> str:
+        if field_map and field in field_map:
+            return str(field_map[field])
+        return field
+
+    @classmethod
+    def json_sql_value(cls, value: Any) -> str:
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        if value is None:
+            return "null"
+        return str(value)
+
+    @classmethod
+    def can_build_json_filter(cls, condition: Any) -> bool:
+        if not isinstance(condition, Mapping):
+            return False
+
+        condition_dict = dict(condition)
+        if not any(operation in JSON_FILTER_OPERATIONS for operation in condition_dict.keys()):
+            return False
+
+        path = cast(Optional[str], condition_dict.get("path"))
+        if not cls.supports_json_path_sql(path):
+            return False
+
+        for operation, expected in condition_dict.items():
+            if operation in ("path", "mode"):
+                continue
+            if operation in ("array_starts_with", "array_ends_with"):
+                return False
+            if operation in ("equals", "string_contains", "string_starts_with", "string_ends_with"):
+                if expected is None:
+                    return False
+                if is_db_null(expected) or is_json_null(expected) or is_any_null(expected):
+                    return False
+                continue
+            if operation in ("not", "not_"):
+                nested_condition = dict(expected) if isinstance(expected, Mapping) else {"equals": expected}
+                nested_condition.setdefault("path", path)
+                if "mode" in condition_dict:
+                    nested_condition.setdefault("mode", condition_dict["mode"])
+                if not cls.can_build_json_filter(nested_condition):
+                    return False
+                continue
+            return False
+
+        return True
+
+    @classmethod
+    def build_json_filter(
+        cls,
+        field: str,
+        condition: Mapping[str, Any],
+        table: str = "",
+        param_offset: int = 0,
+        field_map: Optional[Mapping[str, str]] = None,
+    ) -> Tuple[str, List[Any], int]:
+        if not cls.can_build_json_filter(condition):
+            raise ValueError(f"Unsupported SQL JSON filter for field '{field}'")
+
+        condition_dict = dict(condition)
+        path = cast(str, condition_dict["path"])
+        mode = str(condition_dict.get("mode", "default"))
+        column_name = cls.mapped_column_name(field, field_map)
+        expr = cls.json_path_text_expr(column_name, path, table)
+        comparable_expr = f"LOWER({expr})" if mode == "insensitive" else expr
+
+        conditions: List[str] = []
+        params: List[Any] = []
+        idx = param_offset
+
+        for operation, expected in condition_dict.items():
+            if operation in ("path", "mode"):
+                continue
+
+            if operation in ("not", "not_"):
+                nested_condition = dict(expected) if isinstance(expected, Mapping) else {"equals": expected}
+                nested_condition.setdefault("path", path)
+                if mode != "default":
+                    nested_condition.setdefault("mode", mode)
+                nested_sql, nested_params, idx = cls.build_json_filter(
+                    field,
+                    cast(Mapping[str, Any], nested_condition),
+                    table,
+                    idx,
+                )
+                conditions.append(f"NOT ({nested_sql})")
+                params.extend(nested_params)
+                continue
+
+            if operation == "equals":
+                conditions.append(f"{comparable_expr} = {cls.placeholder(idx)}")
+                value = cls.json_sql_value(expected)
+                params.append(value.lower() if mode == "insensitive" else value)
+                idx += 1
+                continue
+
+            if operation in ("string_contains", "string_starts_with", "string_ends_with"):
+                expected_text = str(expected)
+                if operation == "string_contains":
+                    expected_text = f"%{expected_text}%"
+                elif operation == "string_starts_with":
+                    expected_text = f"{expected_text}%"
+                else:
+                    expected_text = f"%{expected_text}"
+
+                conditions.append(f"{comparable_expr} LIKE {cls.placeholder(idx)}")
+                params.append(expected_text.lower() if mode == "insensitive" else expected_text)
+                idx += 1
+                continue
+
+            raise ValueError(f"Unsupported SQL JSON filter operation: {operation}")
+
+        return " AND ".join(conditions), params, idx
+
+    @classmethod
+    def _convert_value(cls, value: Any) -> Any:
+        """Convert Python types to database-compatible values"""
+        if isinstance(value, Mapping):
+            return {key: cls._convert_value(item) for key, item in dict(value).items()}
+        if isinstance(value, (list, tuple)):
+            return [cls._convert_value(item) for item in value]
+        if isinstance(value, PyEnum):
+            return value.value
+        if isinstance(value, bool):
+            if cls.PROVIDER == "sqlite":
+                return 1 if value else 0
+            return value
+        if isinstance(value, datetime):
+            if cls.PROVIDER == "sqlite":
+                return value.isoformat()
+            return value.replace(tzinfo=None) if value.tzinfo else value
+        return value
+
+    @classmethod
+    def _build_scalar_list_condition(
+        cls,
+        col: str,
+        condition: Any,
+        idx: int,
+    ) -> Tuple[List[str], List[Any], int]:
+        if not isinstance(condition, Mapping):
+            if condition is None:
+                return [f"{col} IS NULL"], [], idx
+            return [f"{col} = {cls.placeholder(idx)}"], [cls._convert_value(ensure_list(condition))], idx + 1
+
+        conditions: List[str] = []
+        params: List[Any] = []
+
+        for operation, expected in dict(condition).items():
+            if operation == "equals":
+                if expected is None:
+                    conditions.append(f"{col} IS NULL")
+                else:
+                    conditions.append(f"{col} = {cls.placeholder(idx)}")
+                    params.append(cls._convert_value(ensure_list(expected)))
+                    idx += 1
+            elif operation == "has":
+                if expected is None:
+                    conditions.append(f"array_position({col}, NULL) IS NOT NULL")
+                else:
+                    conditions.append(f"{col} @> {cls.placeholder(idx)}")
+                    params.append(cls._convert_value([expected]))
+                    idx += 1
+            elif operation == "hasEvery":
+                conditions.append(f"{col} @> {cls.placeholder(idx)}")
+                params.append(cls._convert_value(ensure_list(expected)))
+                idx += 1
+            elif operation == "hasSome":
+                conditions.append(f"{col} && {cls.placeholder(idx)}")
+                params.append(cls._convert_value(ensure_list(expected)))
+                idx += 1
+            elif operation == "isEmpty":
+                conditions.append(
+                    f"COALESCE(cardinality({col}), 0) = 0"
+                    if expected
+                    else f"COALESCE(cardinality({col}), 0) > 0"
+                )
+            else:
+                raise ValueError(f"Unsupported scalar list filter operation: {operation}")
+
+        return conditions, params, idx
+
+    @classmethod
+    def build_where(
+        cls,
+        where: Dict[str, Any],
+        table: str = "",
+        param_offset: int = 0,
+        field_map: Optional[Mapping[str, str]] = None,
+        scalar_list_fields: Optional[Sequence[str]] = None,
+    ) -> Tuple[str, List[Any], int]:
+        """Build WHERE clause from Prisma-style where dict. Returns (sql, params, next_param_index)"""
+        if not where:
+            return "", [], param_offset
+
+        conditions: List[str] = []
+        params: List[Any] = []
+        idx = param_offset
+        scalar_list_field_set = set(scalar_list_fields or [])
+
+        for key, value in where.items():
+            if key == "AND" and isinstance(value, list):
+                sub_conditions = []
+                for w in value:
+                    sql, p, idx = cls.build_where(w, table, idx, field_map, scalar_list_fields)
+                    if sql:
+                        sub_conditions.append(f"({sql})")
+                        params.extend(p)
+                if sub_conditions:
+                    conditions.append(f"({' AND '.join(sub_conditions)})")
+
+            elif key == "OR" and isinstance(value, list):
+                sub_conditions = []
+                for w in value:
+                    sql, p, idx = cls.build_where(w, table, idx, field_map, scalar_list_fields)
+                    if sql:
+                        sub_conditions.append(f"({sql})")
+                        params.extend(p)
+                if sub_conditions:
+                    conditions.append(f"({' OR '.join(sub_conditions)})")
+
+            elif key == "NOT" and isinstance(value, dict):
+                sql, p, idx = cls.build_where(value, table, idx, field_map, scalar_list_fields)
+                if sql:
+                    conditions.append(f"NOT ({sql})")
+                    params.extend(p)
+
+            elif isinstance(value, dict):
+                column_name = cls.mapped_column_name(key, field_map)
+                col = cls.column_ref(column_name, table)
+                if cls.PROVIDER == "postgresql" and key in scalar_list_field_set and any(
+                    operation in SCALAR_LIST_FILTER_OPERATIONS
+                    for operation in value.keys()
+                ):
+                    list_conditions, list_params, idx = cls._build_scalar_list_condition(
+                        col,
+                        value,
+                        idx,
+                    )
+                    conditions.extend(list_conditions)
+                    params.extend(list_params)
+                    continue
+                mode = value.get("mode", "default")
+                validate_scalar_filter_mode(str(mode))
+
+                for op, val in value.items():
+                    if op == "mode":
+                        continue
+                    elif op == "equals":
+                        if mode == "insensitive":
+                            conditions.append(f"LOWER({col}) = LOWER({cls.placeholder(idx)})")
+                        else:
+                            conditions.append(f"{col} = {cls.placeholder(idx)}")
+                        params.append(cls._convert_value(val))
+                        idx += 1
+                    elif op in ("not", "not_"):
+                        if mode == "insensitive":
+                            conditions.append(f"LOWER({col}) != LOWER({cls.placeholder(idx)})")
+                        else:
+                            conditions.append(f"{col} != {cls.placeholder(idx)}")
+                        params.append(cls._convert_value(val))
+                        idx += 1
+                    elif op in ("in", "in_"):
+                        converted_vals = [cls._convert_value(v) for v in val]
+                        placeholders = ", ".join([cls.placeholder(idx + i) for i in range(len(converted_vals))])
+                        conditions.append(f"{col} IN ({placeholders})")
+                        params.extend(converted_vals)
+                        idx += len(converted_vals)
+                    elif op == "notIn":
+                        converted_vals = [cls._convert_value(v) for v in val]
+                        placeholders = ", ".join([cls.placeholder(idx + i) for i in range(len(converted_vals))])
+                        conditions.append(f"{col} NOT IN ({placeholders})")
+                        params.extend(converted_vals)
+                        idx += len(converted_vals)
+                    elif op == "lt":
+                        conditions.append(f"{col} < {cls.placeholder(idx)}")
+                        params.append(cls._convert_value(val))
+                        idx += 1
+                    elif op == "lte":
+                        conditions.append(f"{col} <= {cls.placeholder(idx)}")
+                        params.append(cls._convert_value(val))
+                        idx += 1
+                    elif op == "gt":
+                        conditions.append(f"{col} > {cls.placeholder(idx)}")
+                        params.append(cls._convert_value(val))
+                        idx += 1
+                    elif op == "gte":
+                        conditions.append(f"{col} >= {cls.placeholder(idx)}")
+                        params.append(cls._convert_value(val))
+                        idx += 1
+                    elif op == "contains":
+                        if mode == "insensitive":
+                            conditions.append(f"LOWER({col}) LIKE LOWER({cls.placeholder(idx)})")
+                        else:
+                            conditions.append(f"{col} LIKE {cls.placeholder(idx)}")
+                        params.append(f"%{val}%")
+                        idx += 1
+                    elif op == "startsWith":
+                        if mode == "insensitive":
+                            conditions.append(f"LOWER({col}) LIKE LOWER({cls.placeholder(idx)})")
+                        else:
+                            conditions.append(f"{col} LIKE {cls.placeholder(idx)}")
+                        params.append(f"{val}%")
+                        idx += 1
+                    elif op == "endsWith":
+                        if mode == "insensitive":
+                            conditions.append(f"LOWER({col}) LIKE LOWER({cls.placeholder(idx)})")
+                        else:
+                            conditions.append(f"{col} LIKE {cls.placeholder(idx)}")
+                        params.append(f"%{val}")
+                        idx += 1
+                    elif op == "isNull":
+                        conditions.append(f"{col} IS NULL" if val else f"{col} IS NOT NULL")
+            else:
+                column_name = cls.mapped_column_name(key, field_map)
+                col = cls.column_ref(column_name, table)
+                conditions.append(f"{col} = {cls.placeholder(idx)}")
+                params.append(cls._convert_value(value))
+                idx += 1
+
+        return " AND ".join(conditions), params, idx
+
+    
+    @classmethod
+    def build_order_by(
+        cls,
+        order_by: Optional[Union[Sequence[Mapping[str, Any]], Mapping[str, Any]]],
+        table: str = "",
+        field_map: Optional[Mapping[str, str]] = None,
+    ) -> str:
+        """Build ORDER BY clause from one or more Prisma order_by clauses"""
+        if not order_by:
+            return ""
+
+        parts: List[str] = []
+        for clause in ensure_list(order_by):
+            if not isinstance(clause, Mapping):
+                continue
+
+            for field, direction in clause.items():
+                if field.startswith("_"):
+                    continue
+                column_name = cls.mapped_column_name(field, field_map)
+                col = cls.column_ref(column_name, table)
+                if isinstance(direction, dict):
+                    sort_dir = direction.get("sort", "asc").upper()
+                    nulls = direction.get("nulls")
+                    part = f"{col} {sort_dir}"
+                    if nulls == "first":
+                        part += " NULLS FIRST"
+                    elif nulls == "last":
+                        part += " NULLS LAST"
+                    parts.append(part)
+                else:
+                    parts.append(f"{col} {direction.upper()}")
+
+        return f"ORDER BY {', '.join(parts)}" if parts else ""
+
+    @classmethod
+    def build_select(
+        cls,
+        table: str,
+        fields: List[str],
+        select: Optional[SelectDict] = None,
+        omit: Optional[SelectDict] = None,
+        required_fields: Optional[Sequence[str]] = None,
+        field_map: Optional[Mapping[str, str]] = None,
+    ) -> Tuple[str, List[str]]:
+        """Build SELECT columns, returns (sql_cols, selected_field_names)"""
+        selected: List[str] = []
+        if select:
+            selected = [f for f in fields if select.get(f, False)]
+        elif omit:
+            selected = [f for f in fields if not omit.get(f, False)]
+        else:
+            selected = fields[:]
+
+        required = set(required_fields or [])
+        fetch_fields = [f for f in fields if f in selected or f in required]
+
+        if not fetch_fields:
+            return "*", fields
+
+        select_parts: List[str] = []
+        for field in fetch_fields:
+            column_name = cls.mapped_column_name(field, field_map)
+            column_sql = cls.column_ref(column_name)
+            if column_name == field:
+                select_parts.append(column_sql)
+            else:
+                select_parts.append(
+                    f"{column_sql} AS {cls.quote_identifier(field)}"
+                )
+        cols = ", ".join(select_parts)
+        return cols, fetch_fields
+
+    @classmethod
+    def build_distinct(cls, distinct: Optional[List[str]], table: str = "") -> str:
+        """Build DISTINCT ON clause (PostgreSQL) or just DISTINCT"""
+        if not distinct:
+            return ""
+        if cls.PROVIDER == "postgresql":
+            cols = ", ".join([cls.column_ref(d, table) for d in distinct])
+            return f"DISTINCT ON ({cols})"
+        return "DISTINCT"
+
+
+async def execute_native_upsert(
+    conn: Connection,
+    table: str,
+    conflict_fields: List[str],
+    insert_fields: List[str],
+    insert_values: List[Any],
+    update_fields: List[str],
+    update_values: List[Any],
+    commit_if_needed: Callable[[Connection], Awaitable[None]],
+) -> None:
+    conn_any = cast(Any, conn)
+    insert_columns_sql = ", ".join([SQLBuilder.quote_identifier(field) for field in insert_fields])
+    insert_placeholders = ", ".join(
+        [SQLBuilder.placeholder(index) for index in range(len(insert_fields))]
+    )
+
+    if SQLBuilder.PROVIDER == "postgresql":
+        conflict_sql = ", ".join([SQLBuilder.quote_identifier(field) for field in conflict_fields])
+        if update_fields:
+            update_parts = [
+                f"{SQLBuilder.quote_identifier(field)} = {SQLBuilder.placeholder(len(insert_values) + index)}"
+                for index, field in enumerate(update_fields)
+            ]
+            sql = (
+                f"INSERT INTO {SQLBuilder.quote_identifier(table)} ({insert_columns_sql}) "
+                f"VALUES ({insert_placeholders}) "
+                f"ON CONFLICT ({conflict_sql}) DO UPDATE SET {', '.join(update_parts)}"
+            )
+            await conn_any.execute(sql, *insert_values, *update_values)
+        else:
+            sql = (
+                f"INSERT INTO {SQLBuilder.quote_identifier(table)} ({insert_columns_sql}) "
+                f"VALUES ({insert_placeholders}) "
+                f"ON CONFLICT ({conflict_sql}) DO NOTHING"
+            )
+            await conn_any.execute(sql, *insert_values)
+        return
+
+    if SQLBuilder.PROVIDER == "sqlite":
+        conflict_sql = ", ".join([SQLBuilder.quote_identifier(field) for field in conflict_fields])
+        if update_fields:
+            update_parts = [
+                f"{SQLBuilder.quote_identifier(field)} = ?"
+                for field in update_fields
+            ]
+            sql = (
+                f"INSERT INTO {SQLBuilder.quote_identifier(table)} ({insert_columns_sql}) "
+                f"VALUES ({insert_placeholders}) "
+                f"ON CONFLICT ({conflict_sql}) DO UPDATE SET {', '.join(update_parts)}"
+            )
+            await conn_any.execute(sql, insert_values + update_values)
+        else:
+            sql = (
+                f"INSERT INTO {SQLBuilder.quote_identifier(table)} ({insert_columns_sql}) "
+                f"VALUES ({insert_placeholders}) "
+                f"ON CONFLICT ({conflict_sql}) DO NOTHING"
+            )
+            await conn_any.execute(sql, insert_values)
+        await commit_if_needed(conn)
+        return
+
+    if update_fields:
+        update_parts = [
+            f"{SQLBuilder.quote_identifier(field)} = %s"
+            for field in update_fields
+        ]
+    else:
+        noop_field = conflict_fields[0]
+        update_parts = [
+            f"{SQLBuilder.quote_identifier(noop_field)} = {SQLBuilder.quote_identifier(noop_field)}"
+        ]
+
+    sql = (
+        f"INSERT INTO {SQLBuilder.quote_identifier(table)} ({insert_columns_sql}) "
+        f"VALUES ({insert_placeholders}) "
+        f"ON DUPLICATE KEY UPDATE {', '.join(update_parts)}"
+    )
+    async with cast(Any, conn).cursor() as cursor:
+        await cursor.execute(sql, insert_values + update_values)
+    await commit_if_needed(conn)
+
+
+async def execute_bulk_insert_returning(
+    conn: Connection,
+    table: str,
+    fields: List[str],
+    values_list: List[Tuple[Any, ...]],
+    returning_sql: str,
+    commit_if_needed: Callable[[Connection], Awaitable[None]],
+) -> List[Any]:
+    if not values_list:
+        return []
+
+    conn_any = cast(Any, conn)
+    field_names = ", ".join([SQLBuilder.quote_identifier(field) for field in fields])
+
+    if SQLBuilder.PROVIDER == "postgresql":
+        value_groups: List[str] = []
+        params: List[Any] = []
+        placeholder_index = 0
+        for values in values_list:
+            row_placeholders: List[str] = []
+            for value in values:
+                row_placeholders.append(SQLBuilder.placeholder(placeholder_index))
+                params.append(value)
+                placeholder_index += 1
+            value_groups.append(f"({', '.join(row_placeholders)})")
+
+        sql = (
+            f"INSERT INTO {SQLBuilder.quote_identifier(table)} ({field_names}) "
+            f"VALUES {', '.join(value_groups)} RETURNING {returning_sql}"
+        )
+        return list(await conn_any.fetch(sql, *params))
+
+    row_placeholder = f"({', '.join([SQLBuilder.placeholder() for _ in fields])})"
+    value_groups_sql = ", ".join([row_placeholder for _ in values_list])
+    params = [value for values in values_list for value in values]
+    sql = (
+        f"INSERT INTO {SQLBuilder.quote_identifier(table)} ({field_names}) "
+        f"VALUES {value_groups_sql} RETURNING {returning_sql}"
+    )
+    async with conn_any.execute(sql, params) as cursor:
+        rows = await cursor.fetchall()
+    await commit_if_needed(conn)
+    return list(rows)
+
+
+async def execute_insert_query(
+    conn: Connection,
+    table: str,
+    fields: List[str],
+    values: List[Any],
+    pk_field: Optional[str],
+    pk_value: Any,
+    commit_if_needed: Callable[[Connection], Awaitable[None]],
+) -> Any:
+    conn_any = cast(Any, conn)
+    field_names = ", ".join([SQLBuilder.quote_identifier(field) for field in fields])
+    placeholders = ", ".join([SQLBuilder.placeholder(index) for index, _ in enumerate(fields)])
+
+    if fields:
+        sql = (
+            f"INSERT INTO {SQLBuilder.quote_identifier(table)} ({field_names}) "
+            f"VALUES ({placeholders})"
+        )
+    elif SQLBuilder.PROVIDER == "mysql":
+        sql = f"INSERT INTO {SQLBuilder.quote_identifier(table)} () VALUES ()"
+    else:
+        sql = f"INSERT INTO {SQLBuilder.quote_identifier(table)} DEFAULT VALUES"
+
+    if SQLBuilder.PROVIDER == "postgresql":
+        if pk_field is not None and pk_value is None:
+            row = await conn_any.fetchrow(
+                f"{sql} RETURNING {SQLBuilder.quote_identifier(pk_field)}",
+                *values,
+            )
+            if row is not None:
+                try:
+                    return row[pk_field]
+                except (KeyError, TypeError):
+                    return row[0]
+        else:
+            await conn_any.execute(sql, *values)
+        return pk_value
+
+    if SQLBuilder.PROVIDER == "sqlite":
+        cursor = await conn_any.execute(sql, values)
+        if pk_field is not None and pk_value is None:
+            pk_value = cursor.lastrowid
+        await commit_if_needed(conn)
+        return pk_value
+
+    async with cast(Any, conn).cursor() as cursor:
+        await cursor.execute(sql, values)
+        if pk_field is not None and pk_value is None:
+            pk_value = cursor.lastrowid
+    await commit_if_needed(conn)
+    return pk_value
+
+
+async def execute_bulk_insert_count(
+    conn: Connection,
+    table: str,
+    fields: List[str],
+    values_list: List[Tuple[Any, ...]],
+    skip_duplicates: bool,
+) -> int:
+    if not values_list:
+        return 0
+
+    conn_any = cast(Any, conn)
+    if not fields:
+        count = 0
+        for _values in values_list:
+            try:
+                if SQLBuilder.PROVIDER == "postgresql":
+                    row = await conn_any.fetchrow(
+                        f"INSERT INTO {SQLBuilder.quote_identifier(table)} DEFAULT VALUES RETURNING 1"
+                    )
+                    count += 1 if row else 0
+                elif SQLBuilder.PROVIDER == "sqlite":
+                    before_changes = conn_any.total_changes
+                    await conn_any.execute(
+                        f"INSERT INTO {SQLBuilder.quote_identifier(table)} DEFAULT VALUES",
+                        [],
+                    )
+                    count += conn_any.total_changes - before_changes
+                else:
+                    async with cast(Any, conn).cursor() as cursor:
+                        await cursor.execute(
+                            f"INSERT INTO {SQLBuilder.quote_identifier(table)} () VALUES ()",
+                            [],
+                        )
+                        count += cursor.rowcount
+            except Exception as exc:
+                if not skip_duplicates:
+                    raise exc
+        return count
+
+    field_names = ", ".join([SQLBuilder.quote_identifier(field) for field in fields])
+
+    try:
+        if SQLBuilder.PROVIDER == "postgresql":
+            value_groups: List[str] = []
+            params: List[Any] = []
+            placeholder_index = 0
+            for values in values_list:
+                row_placeholders: List[str] = []
+                for value in values:
+                    row_placeholders.append(SQLBuilder.placeholder(placeholder_index))
+                    params.append(value)
+                    placeholder_index += 1
+                value_groups.append(f"({', '.join(row_placeholders)})")
+
+            sql = (
+                f"INSERT INTO {SQLBuilder.quote_identifier(table)} ({field_names}) "
+                f"VALUES {', '.join(value_groups)}"
+            )
+            if skip_duplicates:
+                sql += " ON CONFLICT DO NOTHING"
+            sql += " RETURNING 1"
+            rows = await conn_any.fetch(sql, *params)
+            return len(rows)
+
+        row_placeholders_sql = ", ".join([SQLBuilder.placeholder() for _ in fields])
+        if SQLBuilder.PROVIDER == "sqlite":
+            conflict = " OR IGNORE" if skip_duplicates else ""
+            sql = (
+                f"INSERT{conflict} INTO {SQLBuilder.quote_identifier(table)} "
+                f"({field_names}) VALUES ({row_placeholders_sql})"
+            )
+            before_changes = conn_any.total_changes
+            await conn_any.executemany(sql, values_list)
+            count = conn_any.total_changes - before_changes
+            return count
+
+        conflict = " IGNORE" if skip_duplicates else ""
+        sql = (
+            f"INSERT{conflict} INTO {SQLBuilder.quote_identifier(table)} "
+            f"({field_names}) VALUES ({row_placeholders_sql})"
+        )
+        async with cast(Any, conn).cursor() as cursor:
+            await cursor.executemany(sql, values_list)
+            count = cursor.rowcount
+        return count
+    except Exception as exc:
+        if not skip_duplicates:
+            raise exc
+        return 0
+
+
+async def execute_sql_group_by(
+    conn: Connection,
+    table: str,
+    fields: List[str],
+    by: List[str],
+    where_sql: str,
+    params: List[Any],
+    sql_order_parts: List[str],
+    take: Optional[int],
+    skip: Optional[int],
+    include_count_all: bool,
+    requested_count_map: Optional[Dict[str, Any]],
+    computed_count_fields: Dict[str, bool],
+    computed_aggregate_inputs: Dict[str, Dict[str, bool]],
+    requested_aggregate_maps: Dict[str, Optional[Dict[str, Any]]],
+    count_requested: Any,
+    field_map: Optional[Mapping[str, str]] = None,
+) -> List[Dict[str, Any]]:
+    select_parts: List[str] = []
+    selected_aliases: List[str] = []
+    for field in by:
+        column_name = SQLBuilder.mapped_column_name(field, field_map)
+        select_parts.append(
+            f"{SQLBuilder.quote_identifier(column_name)} AS {SQLBuilder.quote_identifier(field)}"
+        )
+        selected_aliases.append(field)
+
+    should_compute_count = include_count_all or bool(computed_count_fields)
+    if should_compute_count:
+        if include_count_all:
+            alias = "_count__all"
+            select_parts.append(f"COUNT(*) AS {SQLBuilder.quote_identifier(alias)}")
+            selected_aliases.append(alias)
+        for field in fields:
+            if computed_count_fields.get(field):
+                alias = f"_count__{field}"
+                column_name = SQLBuilder.mapped_column_name(field, field_map)
+                select_parts.append(
+                    f"COUNT({SQLBuilder.quote_identifier(column_name)}) AS {SQLBuilder.quote_identifier(alias)}"
+                )
+                selected_aliases.append(alias)
+
+    aggregate_sql_funcs = {
+        "_avg": "AVG",
+        "_sum": "SUM",
+        "_min": "MIN",
+        "_max": "MAX",
+    }
+    for agg_name, agg_fields in computed_aggregate_inputs.items():
+        agg_func = aggregate_sql_funcs[agg_name]
+        for field in fields:
+            if not agg_fields.get(field):
+                continue
+            alias = f"{agg_name}__{field}"
+            column_name = SQLBuilder.mapped_column_name(field, field_map)
+            select_parts.append(
+                f"{agg_func}({SQLBuilder.quote_identifier(column_name)}) AS {SQLBuilder.quote_identifier(alias)}"
+            )
+            selected_aliases.append(alias)
+
+    group_fields_sql = ", ".join([
+        SQLBuilder.quote_identifier(SQLBuilder.mapped_column_name(field, field_map))
+        for field in by
+    ])
+    sql = (
+        f"SELECT {', '.join(select_parts)} "
+        f"FROM {SQLBuilder.quote_identifier(table)}"
+    )
+    if where_sql:
+        sql += f" WHERE {where_sql}"
+    sql += f" GROUP BY {group_fields_sql}"
+    if sql_order_parts:
+        sql += f" ORDER BY {', '.join(sql_order_parts)}"
+    if take is not None:
+        sql += f" LIMIT {int(take)}"
+    if skip:
+        sql += f" OFFSET {int(skip)}"
+
+    conn_any = cast(Any, conn)
+    if SQLBuilder.PROVIDER == "postgresql":
+        fetched_rows = await conn_any.fetch(sql, *params)
+    elif SQLBuilder.PROVIDER == "sqlite":
+        async with conn_any.execute(sql, params) as cursor:
+            fetched_rows = await cursor.fetchall()
+    else:
+        async with cast(Any, conn).cursor() as cursor:
+            await cursor.execute(sql, params)
+            fetched_rows = await cursor.fetchall()
+
+    flat_rows: List[Dict[str, Any]] = []
+    for fetched_row in fetched_rows:
+        try:
+            flat_rows.append(dict(fetched_row))
+        except (TypeError, ValueError):
+            flat_rows.append(dict(zip(selected_aliases, fetched_row)))
+
+    rows: List[Dict[str, Any]] = []
+    for flat_row in flat_rows:
+        row: Dict[str, Any] = {
+            field: flat_row.get(field) for field in by
+        }
+
+        if should_compute_count:
+            count_row: Dict[str, Any] = {}
+            if include_count_all:
+                count_row["_all"] = flat_row.get("_count__all")
+            for field in fields:
+                if computed_count_fields.get(field):
+                    count_row[field] = flat_row.get(f"_count__{field}")
+            row["_count"] = count_row
+
+        for agg_name, agg_fields in computed_aggregate_inputs.items():
+            agg_row: Dict[str, Any] = {}
+            for field in fields:
+                if agg_fields.get(field):
+                    value = flat_row.get(f"{agg_name}__{field}")
+                    agg_row[field] = float(value) if value is not None and agg_name == "_avg" else value
+            row[agg_name] = agg_row
+
+        rows.append(row)
+
+    for row in rows:
+        if count_requested:
+            count_row = dict(cast(Mapping[str, Any], row.get("_count") or {}))
+            trimmed_count: Dict[str, Any] = {}
+            if count_requested is True or bool(requested_count_map and requested_count_map.get("_all")):
+                trimmed_count["_all"] = count_row.get("_all")
+            if requested_count_map:
+                for field in fields:
+                    if requested_count_map.get(field):
+                        trimmed_count[field] = count_row.get(field)
+            row["_count"] = trimmed_count
+        else:
+            row.pop("_count", None)
+
+        for agg_name, requested_fields in requested_aggregate_maps.items():
+            if not requested_fields:
+                row.pop(agg_name, None)
+                continue
+
+            agg_row = dict(cast(Mapping[str, Any], row.get(agg_name) or {}))
+            row[agg_name] = {
+                field: agg_row.get(field)
+                for field in fields
+                if requested_fields.get(field)
+            }
+
+    return rows
+
+
+async def execute_count_query(
+    conn: Connection,
+    table: str,
+    where_sql: str = "",
+    params: Optional[List[Any]] = None,
+    limit: Optional[int] = None,
+    offset: Optional[int] = None,
+) -> int:
+    query_params = params or []
+    conn_any = cast(Any, conn)
+    base_sql = f'SELECT 1 FROM {SQLBuilder.quote_identifier(table)}'
+    if where_sql:
+        base_sql += f" WHERE {where_sql}"
+
+    if limit is not None or offset:
+        if limit is not None:
+            base_sql += f" LIMIT {max(0, limit)}"
+        elif SQLBuilder.PROVIDER == "sqlite":
+            base_sql += " LIMIT -1"
+        elif SQLBuilder.PROVIDER == "mysql":
+            base_sql += " LIMIT 18446744073709551615"
+        if offset:
+            base_sql += f" OFFSET {max(0, offset)}"
+        sql = f"SELECT COUNT(*) FROM ({base_sql}) AS {SQLBuilder.quote_identifier('_count_rows')}"
+    else:
+        sql = f'SELECT COUNT(*) FROM {SQLBuilder.quote_identifier(table)}'
+        if where_sql:
+            sql += f" WHERE {where_sql}"
+
+    if SQLBuilder.PROVIDER == "postgresql":
+        row = await conn_any.fetchrow(sql, *query_params)
+        return row[0] if row else 0
+    if SQLBuilder.PROVIDER == "sqlite":
+        async with conn_any.execute(sql, query_params) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else 0
+    async with cast(Any, conn).cursor() as cursor:
+        await cursor.execute(sql, query_params)
+        row = await cursor.fetchone()
+        return row[0] if row else 0
+
+
+async def execute_write_query(
+    conn: Connection,
+    sql: str,
+    params: Optional[List[Any]],
+    commit_if_needed: Callable[[Connection], Awaitable[None]],
+) -> int:
+    query_params = params or []
+    conn_any = cast(Any, conn)
+
+    if SQLBuilder.PROVIDER == "postgresql":
+        result = await conn_any.execute(sql, *query_params)
+        return int(result.split()[-1]) if result else 0
+
+    if SQLBuilder.PROVIDER == "sqlite":
+        cursor = await conn_any.execute(sql, query_params)
+        count = cursor.rowcount
+        await commit_if_needed(conn)
+        return count
+
+    async with cast(Any, conn).cursor() as cursor:
+        await cursor.execute(sql, query_params)
+        count = cursor.rowcount
+    await commit_if_needed(conn)
+    return count
+
+
+async def execute_many_write_query(
+    conn: Connection,
+    sql: str,
+    values_list: List[Tuple[Any, ...]],
+    commit_if_needed: Callable[[Connection], Awaitable[None]],
+) -> int:
+    if not values_list:
+        return 0
+
+    conn_any = cast(Any, conn)
+    if SQLBuilder.PROVIDER == "postgresql":
+        await conn_any.executemany(sql, values_list)
+        return len(values_list)
+
+    if SQLBuilder.PROVIDER == "sqlite":
+        cursor = await conn_any.executemany(sql, values_list)
+        count = cursor.rowcount if cursor.rowcount is not None and cursor.rowcount >= 0 else len(values_list)
+        await commit_if_needed(conn)
+        return count
+
+    async with cast(Any, conn).cursor() as cursor:
+        await cursor.executemany(sql, values_list)
+        count = cursor.rowcount
+    await commit_if_needed(conn)
+    return count
+
+
+def build_m2m_insert_sql(join_table: str, local_column: str, remote_column: str) -> str:
+    local_sql = SQLBuilder.quote_identifier(local_column)
+    remote_sql = SQLBuilder.quote_identifier(remote_column)
+    table_sql = SQLBuilder.quote_identifier(join_table)
+    first_placeholder = SQLBuilder.placeholder(0)
+    second_placeholder = SQLBuilder.placeholder(1)
+
+    if SQLBuilder.PROVIDER == "postgresql":
+        return (
+            f"INSERT INTO {table_sql} ({local_sql}, {remote_sql}) "
+            f"VALUES ({first_placeholder}, {second_placeholder}) ON CONFLICT DO NOTHING"
+        )
+
+    if SQLBuilder.PROVIDER == "sqlite":
+        return (
+            f"INSERT OR IGNORE INTO {table_sql} ({local_sql}, {remote_sql}) "
+            f"VALUES ({first_placeholder}, {second_placeholder})"
+        )
+
+    return (
+        f"INSERT IGNORE INTO {table_sql} ({local_sql}, {remote_sql}) "
+        f"VALUES ({first_placeholder}, {second_placeholder})"
+    )
+
+
+async def fetch_dict_rows(
+    conn: Connection,
+    sql: str,
+    params: Optional[List[Any]],
+    selected_fields: List[str],
+) -> List[Dict[str, Any]]:
+    query_params = params or []
+    conn_any = cast(Any, conn)
+
+    if SQLBuilder.PROVIDER == "postgresql":
+        rows = await conn_any.fetch(sql, *query_params)
+        return [dict(row) for row in rows]
+
+    if SQLBuilder.PROVIDER == "sqlite":
+        async with conn_any.execute(sql, query_params) as cursor:
+            columns = [desc[0] for desc in cursor.description] if cursor.description else selected_fields
+            rows = await cursor.fetchall()
+            return [dict(zip(columns, row)) for row in rows]
+
+    async with cast(Any, conn).cursor() as cursor:
+        await cursor.execute(sql, query_params)
+        columns = [desc[0] for desc in cursor.description] if cursor.description else selected_fields
+        rows = await cursor.fetchall()
+        return [dict(zip(columns, row)) for row in rows]
+
+
+async def fetch_dict_row(
+    conn: Connection,
+    sql: str,
+    params: Optional[List[Any]],
+    selected_fields: List[str],
+) -> Optional[Dict[str, Any]]:
+    rows = await fetch_dict_rows(conn, sql, params, selected_fields)
+    return rows[0] if rows else None
+
+
+async def fetch_grouped_count_rows(
+    conn: Connection,
+    table: str,
+    group_field: str,
+    values: List[Any],
+) -> Dict[Any, int]:
+    if not values:
+        return {}
+
+    placeholders = ", ".join([SQLBuilder.placeholder(index) for index, _ in enumerate(values)])
+    count_alias = "_count"
+    group_sql = SQLBuilder.quote_identifier(group_field)
+    sql = (
+        f"SELECT {group_sql} AS {group_sql}, COUNT(*) AS {SQLBuilder.quote_identifier(count_alias)} "
+        f"FROM {SQLBuilder.quote_identifier(table)} "
+        f"WHERE {group_sql} IN ({placeholders}) "
+        f"GROUP BY {group_sql}"
+    )
+    rows = await fetch_dict_rows(conn, sql, values, [group_field, count_alias])
+    return {
+        row[group_field]: int(row.get(count_alias) or 0)
+        for row in rows
+        if row.get(group_field) is not None
+    }
+
+
+async def execute_sql_aggregate(
+    conn: Connection,
+    table: str,
+    fields: List[str],
+    where_sql: str,
+    params: List[Any],
+    count_request: Any,
+    avg_request: Optional[Dict[str, bool]],
+    sum_request: Optional[Dict[str, bool]],
+    min_request: Optional[Dict[str, bool]],
+    max_request: Optional[Dict[str, bool]],
+    field_map: Optional[Mapping[str, str]] = None,
+) -> Dict[str, Any]:
+    select_parts: List[str] = []
+    selected_aliases: List[str] = []
+
+    if count_request:
+        if count_request is True or (
+            isinstance(count_request, Mapping) and count_request.get("_all")
+        ):
+            alias = "_count__all"
+            select_parts.append(f"COUNT(*) AS {SQLBuilder.quote_identifier(alias)}")
+            selected_aliases.append(alias)
+
+        if isinstance(count_request, Mapping):
+            for field in fields:
+                if count_request.get(field):
+                    alias = f"_count__{field}"
+                    column_name = SQLBuilder.mapped_column_name(field, field_map)
+                    select_parts.append(
+                        f"COUNT({SQLBuilder.quote_identifier(column_name)}) AS {SQLBuilder.quote_identifier(alias)}"
+                    )
+                    selected_aliases.append(alias)
+
+    aggregate_requests = {
+        "_avg": ("AVG", avg_request),
+        "_sum": ("SUM", sum_request),
+        "_min": ("MIN", min_request),
+        "_max": ("MAX", max_request),
+    }
+    for agg_name, (agg_func, request) in aggregate_requests.items():
+        if not request:
+            continue
+        for field in fields:
+            if request.get(field):
+                alias = f"{agg_name}__{field}"
+                column_name = SQLBuilder.mapped_column_name(field, field_map)
+                select_parts.append(
+                    f"{agg_func}({SQLBuilder.quote_identifier(column_name)}) AS {SQLBuilder.quote_identifier(alias)}"
+                )
+                selected_aliases.append(alias)
+
+    if not select_parts:
+        return {}
+
+    sql = (
+        f"SELECT {', '.join(select_parts)} "
+        f"FROM {SQLBuilder.quote_identifier(table)}"
+    )
+    if where_sql:
+        sql += f" WHERE {where_sql}"
+
+    conn_any = cast(Any, conn)
+    if SQLBuilder.PROVIDER == "postgresql":
+        fetched_row = await conn_any.fetchrow(sql, *params)
+    elif SQLBuilder.PROVIDER == "sqlite":
+        async with conn_any.execute(sql, params) as cursor:
+            fetched_row = await cursor.fetchone()
+    else:
+        async with cast(Any, conn).cursor() as cursor:
+            await cursor.execute(sql, params)
+            fetched_row = await cursor.fetchone()
+
+    if not fetched_row:
+        flat_row: Dict[str, Any] = {}
+    else:
+        try:
+            flat_row = dict(fetched_row)
+        except (TypeError, ValueError):
+            flat_row = dict(zip(selected_aliases, fetched_row))
+
+    result: Dict[str, Any] = {}
+    if count_request:
+        count_row: Dict[str, Any] = {}
+        if count_request is True or (
+            isinstance(count_request, Mapping) and count_request.get("_all")
+        ):
+            count_row["_all"] = flat_row.get("_count__all", 0)
+        if isinstance(count_request, Mapping):
+            for field in fields:
+                if count_request.get(field):
+                    count_row[field] = flat_row.get(f"_count__{field}", 0)
+        result["_count"] = count_row
+
+    aggregate_output_requests = {
+        "_avg": avg_request,
+        "_sum": sum_request,
+        "_min": min_request,
+        "_max": max_request,
+    }
+    for agg_name, request in aggregate_output_requests.items():
+        if not request:
+            continue
+        agg_row: Dict[str, Any] = {}
+        for field in fields:
+            if request.get(field):
+                value = flat_row.get(f"{agg_name}__{field}")
+                agg_row[field] = float(value) if value is not None and agg_name == "_avg" else value
+        result[agg_name] = agg_row
+
+    return result
+
+
+def build_python_group_by_rows(
+    records: List[Any],
+    fields: List[str],
+    by: List[str],
+    having: Optional[Mapping[str, Any]],
+    valid_fields: Set[str],
+    order_by_clauses: List[Mapping[str, Any]],
+    take: Optional[int],
+    skip: Optional[int],
+    include_count_all: bool,
+    requested_count_map: Optional[Dict[str, Any]],
+    computed_count_fields: Dict[str, bool],
+    computed_aggregate_inputs: Dict[str, Dict[str, bool]],
+    requested_aggregate_maps: Dict[str, Optional[Dict[str, Any]]],
+    count_requested: Any,
+) -> List[Dict[str, Any]]:
+    should_compute_count = include_count_all or bool(computed_count_fields)
+    groups: Dict[Tuple[Any, ...], List[Any]] = {}
+    for record in records:
+        key = tuple(get_source_value(record, field) for field in by)
+        groups.setdefault(key, []).append(record)
+
+    rows: List[Dict[str, Any]] = []
+
+    for key, items in groups.items():
+        row: Dict[str, Any] = {
+            field: key[index] for index, field in enumerate(by)
+        }
+
+        if should_compute_count:
+            count_row: Dict[str, Any] = {}
+            if include_count_all:
+                count_row["_all"] = len(items)
+            for field in fields:
+                if not computed_count_fields.get(field):
+                    continue
+                count_row[field] = sum(
+                    1 for item in items if get_source_value(item, field) is not None
+                )
+            row["_count"] = count_row
+
+        for agg_name, agg_fields in computed_aggregate_inputs.items():
+            if not agg_fields:
+                continue
+
+            agg_row: Dict[str, Any] = {}
+            for field in fields:
+                if not agg_fields.get(field):
+                    continue
+
+                values = [
+                    get_source_value(item, field)
+                    for item in items
+                    if get_source_value(item, field) is not None
+                ]
+                if not values:
+                    agg_row[field] = None
+                elif agg_name == "_avg":
+                    agg_row[field] = float(sum(values) / len(values))
+                elif agg_name == "_sum":
+                    agg_row[field] = sum(values)
+                elif agg_name == "_min":
+                    agg_row[field] = min(values)
+                else:
+                    agg_row[field] = max(values)
+
+            row[agg_name] = agg_row
+
+        rows.append(row)
+
+    if having:
+        by_fields = set(by)
+        rows = [
+            row
+            for row in rows
+            if matches_group_by_having(row, having, by_fields, valid_fields)
+        ]
+
+    if order_by_clauses:
+        for order_clause in reversed(order_by_clauses):
+            for order_field, direction in reversed(list(dict(order_clause).items())):
+                if order_field in GROUP_BY_AGGREGATE_KEYS and isinstance(direction, Mapping):
+                    for nested_field, nested_direction in reversed(list(dict(direction).items())):
+                        reverse = str(nested_direction).lower() == "desc"
+                        rows.sort(
+                            key=lambda item: (
+                                (item.get(order_field) or {}).get(nested_field) is None,
+                                (item.get(order_field) or {}).get(nested_field),
+                            ),
+                            reverse=reverse,
+                        )
+                    continue
+
+                if isinstance(direction, Mapping):
+                    reverse = str(direction.get("sort", "asc")).lower() == "desc"
+                else:
+                    reverse = str(direction).lower() == "desc"
+
+                rows.sort(
+                    key=lambda item: (item.get(order_field) is None, item.get(order_field)),
+                    reverse=reverse,
+                )
+
+    if skip:
+        rows = rows[skip:]
+    if take is not None:
+        rows = rows[:take]
+
+    for row in rows:
+        if count_requested:
+            count_row = dict(cast(Mapping[str, Any], row.get("_count") or {}))
+            trimmed_count: Dict[str, Any] = {}
+            if count_requested is True or bool(requested_count_map and requested_count_map.get("_all")):
+                trimmed_count["_all"] = count_row.get("_all")
+            if requested_count_map:
+                for field in fields:
+                    if requested_count_map.get(field):
+                        trimmed_count[field] = count_row.get(field)
+            row["_count"] = trimmed_count
+        else:
+            row.pop("_count", None)
+
+        for agg_name, requested_fields in requested_aggregate_maps.items():
+            if not requested_fields:
+                row.pop(agg_name, None)
+                continue
+
+            agg_row = dict(cast(Mapping[str, Any], row.get(agg_name) or {}))
+            row[agg_name] = {
+                field: agg_row.get(field)
+                for field in fields
+                if requested_fields.get(field)
+            }
+
+    return rows
+
+
+def build_python_aggregate_result(
+    records: List[Any],
+    fields: List[str],
+    count_request: Any,
+    avg_request: Optional[Dict[str, bool]],
+    sum_request: Optional[Dict[str, bool]],
+    min_request: Optional[Dict[str, bool]],
+    max_request: Optional[Dict[str, bool]],
+) -> Dict[str, Any]:
+    result: Dict[str, Any] = {}
+
+    if count_request:
+        if count_request is True or (isinstance(count_request, dict) and count_request.get("_all")):
+            result["_count"] = {"_all": len(records)}
+        elif isinstance(count_request, dict):
+            result["_count"] = {}
+            for field, include in count_request.items():
+                if include and field in fields:
+                    result["_count"][field] = sum(
+                        1 for record in records if get_source_value(record, field) is not None
+                    )
+
+    for agg_name, agg_dict in [
+        ("_avg", avg_request),
+        ("_sum", sum_request),
+        ("_min", min_request),
+        ("_max", max_request),
+    ]:
+        if not agg_dict:
+            continue
+
+        result[agg_name] = {}
+        for field, include in agg_dict.items():
+            if not include or field not in fields:
+                continue
+
+            values = [
+                get_source_value(record, field)
+                for record in records
+                if get_source_value(record, field) is not None
+            ]
+            if not values:
+                result[agg_name][field] = None
+            elif agg_name == "_avg":
+                result[agg_name][field] = float(sum(values) / len(values))
+            elif agg_name == "_sum":
+                result[agg_name][field] = sum(values)
+            elif agg_name == "_min":
+                result[agg_name][field] = min(values)
+            else:
+                result[agg_name][field] = max(values)
+
+    return result
+
+
+def apply_atomic_update(current: Any, field: str, value: Any) -> Any:
+    """Apply atomic operations and return new value"""
+    if isinstance(value, dict):
+        curr = current or 0
+        if "set" in value:
+            return value["set"]
+        elif "increment" in value:
+            return curr + value["increment"]
+        elif "decrement" in value:
+            return curr - value["decrement"]
+        elif "multiply" in value:
+            return curr * value["multiply"]
+        elif "divide" in value:
+            return curr / value["divide"] if value["divide"] != 0 else curr
+    return value
+
+
+def apply_scalar_list_update(current: Any, value: Any) -> List[Any]:
+    current_items = list(current) if isinstance(current, (list, tuple)) else ensure_list(current)
+    if isinstance(value, Mapping):
+        if "set" in value:
+            return ensure_list(value["set"])
+        if "push" in value:
+            return current_items + ensure_list(value["push"])
+    return ensure_list(value)
+
+
+def get_source_value(source: Any, field: str) -> Any:
+    if isinstance(source, Mapping):
+        return source.get(field)
+    return getattr(source, field, None)
+
+
+def build_field_tuple(source: Any, fields: List[str]) -> Optional[Tuple[Any, ...]]:
+    if not fields:
+        return None
+
+    values: List[Any] = []
+    for field in fields:
+        value = get_source_value(source, field)
+        if value is None:
+            return None
+        values.append(value)
+
+    return tuple(values)
+
+
+def build_selector_value(source: Any, fields: List[str]) -> Any:
+    values = build_field_tuple(source, fields)
+    if values is None:
+        raise ValueError(f"Missing relation fields: {fields}")
+    if len(fields) == 1:
+        return values[0]
+    return {field: value for field, value in zip(fields, values)}
+
+
+def ensure_list(value: Any) -> List[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return list(value)
+    return [value]
+
+
+SCALAR_LIST_FILTER_OPERATIONS = {
+    "equals",
+    "has",
+    "hasEvery",
+    "hasSome",
+    "isEmpty",
+}
+
+
+GROUP_BY_AGGREGATE_KEYS = ("_count", "_avg", "_sum", "_min", "_max")
+JSON_FILTER_OPERATIONS = {
+    "equals",
+    "path",
+    "mode",
+    "string_contains",
+    "string_starts_with",
+    "string_ends_with",
+    "array_starts_with",
+    "array_ends_with",
+    "not",
+    "not_",
+}
+
+JSON_PATH_MISSING = object()
+
+
+def serialize_json_field_value(value: Any) -> Optional[str]:
+    if is_any_null(value):
+        raise ValueError("AnyNull can only be used in JSON filters")
+    if is_db_null(value) or value is None:
+        return None
+    if is_json_null(value):
+        return json.dumps(None)
+    return json.dumps(value)
+
+
+def deserialize_json_field_value(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+
+    try:
+        parsed = json.loads(value)
+    except Exception:
+        return value
+
+    return JsonNull if parsed is None else parsed
+
+
+def serialize_scalar_list_field_value(
+    value: Any,
+    field_type: str,
+    enum_class: Optional[Any] = None,
+) -> List[Any]:
+    if isinstance(value, Mapping):
+        if "set" not in value:
+            raise ValueError("Scalar list create inputs only support the 'set' operation")
+        value = value["set"]
+
+    serialized: List[Any] = []
+    for item in ensure_list(value):
+        if isinstance(item, PyEnum):
+            serialized.append(item.value)
+            continue
+
+        if field_type == "DateTime":
+            if isinstance(item, datetime):
+                if SQLBuilder.PROVIDER == "sqlite":
+                    serialized.append(item.isoformat())
+                else:
+                    serialized.append(item.replace(tzinfo=None) if item.tzinfo else item)
+                continue
+
+            if isinstance(item, str) and SQLBuilder.PROVIDER != "sqlite":
+                try:
+                    dt = datetime.fromisoformat(item.replace('Z', '+00:00'))
+                    serialized.append(dt.replace(tzinfo=None) if dt.tzinfo else dt)
+                    continue
+                except Exception:
+                    pass
+
+        serialized.append(item)
+
+    return serialized
+
+
+def deserialize_scalar_list_field_value(
+    value: Any,
+    field_type: str,
+    enum_class: Optional[Any] = None,
+) -> List[Any]:
+    items = list(value) if isinstance(value, (list, tuple)) else ensure_list(value)
+    if not items:
+        return []
+
+    if enum_class is not None:
+        deserialized: List[Any] = []
+        for item in items:
+            if item is None:
+                deserialized.append(item)
+                continue
+            try:
+                deserialized.append(enum_class(item))
+            except (ValueError, KeyError, TypeError):
+                deserialized.append(item)
+        return deserialized
+
+    if field_type == "DateTime":
+        deserialized = []
+        for item in items:
+            if isinstance(item, str):
+                try:
+                    deserialized.append(datetime.fromisoformat(item))
+                    continue
+                except Exception:
+                    pass
+            deserialized.append(item)
+        return deserialized
+
+    return items
+
+
+def matches_json_special_null(expected: Any, actual: Any, *, top_level: bool) -> bool:
+    if is_db_null(expected):
+        return top_level and actual is None
+    if is_json_null(expected):
+        if top_level:
+            return is_json_null(actual)
+        return actual is None
+    if is_any_null(expected):
+        if top_level:
+            return actual is None or is_json_null(actual)
+        return actual is None
+    return False
+
+
+def build_truthy_field_map(
+    selection: Optional[Mapping[str, Any]],
+    valid_fields: Optional[Set[str]] = None,
+    exclude_fields: Optional[Set[str]] = None,
+) -> Dict[str, bool]:
+    result: Dict[str, bool] = {}
+    if not selection:
+        return result
+
+    excluded = exclude_fields or set()
+    for field, include_field in dict(selection).items():
+        if not include_field or field in excluded:
+            continue
+        if valid_fields is not None and field not in valid_fields:
+            continue
+        result[field] = True
+
+    return result
+
+
+def _normalize_filter_values(value: Any, expected: Any, mode: str = "default") -> Tuple[Any, Any]:
+    if mode == "insensitive" and isinstance(value, str) and isinstance(expected, str):
+        return value.lower(), expected.lower()
+    return value, expected
+
+
+def validate_scalar_filter_mode(mode: str) -> None:
+    if mode == "default":
+        return
+
+    if mode != "insensitive":
+        raise ValueError(f"Unsupported string filter mode: {mode}")
+
+    if SQLBuilder.PROVIDER != "postgresql":
+        raise ValueError(
+            "Case-insensitive string filter mode is only supported for PostgreSQL. "
+            "MySQL relies on collation-based case insensitivity by default, and SQLite requires COLLATE NOCASE on the column."
+        )
+
+
+def matches_scalar_filter_operation(
+    value: Any,
+    operation: str,
+    expected: Any,
+    mode: str = "default",
+) -> bool:
+    validate_scalar_filter_mode(mode)
+
+    if operation == "isNull":
+        return (value is None) == bool(expected)
+
+    if operation in ("in", "in_"):
+        return any(
+            matches_scalar_filter_operation(value, "equals", option, mode)
+            for option in ensure_list(expected)
+        )
+
+    if operation == "notIn":
+        return not any(
+            matches_scalar_filter_operation(value, "equals", option, mode)
+            for option in ensure_list(expected)
+        )
+
+    if operation == "equals":
+        current_value, expected_value = _normalize_filter_values(value, expected, mode)
+        return current_value == expected_value
+
+    if value is None:
+        return False
+
+    if operation == "lt":
+        return value < expected
+    if operation == "lte":
+        return value <= expected
+    if operation == "gt":
+        return value > expected
+    if operation == "gte":
+        return value >= expected
+
+    if operation in ("contains", "startsWith", "endsWith"):
+        if not isinstance(value, str):
+            return False
+
+        current_value, expected_value = _normalize_filter_values(
+            value,
+            str(expected),
+            mode,
+        )
+        if operation == "contains":
+            return expected_value in current_value
+        if operation == "startsWith":
+            return current_value.startswith(expected_value)
+        return current_value.endswith(expected_value)
+
+    raise ValueError(f"Unsupported filter operation: {operation}")
+
+
+def matches_scalar_filter_value(value: Any, condition: Any, mode: str = "default") -> bool:
+    if not isinstance(condition, Mapping):
+        return matches_scalar_filter_operation(value, "equals", condition, mode)
+
+    nested_mode = str(condition.get("mode", mode))
+    for operation, expected in dict(condition).items():
+        if operation == "mode":
+            continue
+        if operation in ("not", "not_"):
+            if matches_scalar_filter_value(value, expected, nested_mode):
+                return False
+            continue
+        if operation in GROUP_BY_AGGREGATE_KEYS:
+            raise ValueError("Aggregate filter operations must be evaluated through group_by having")
+        if not matches_scalar_filter_operation(value, operation, expected, nested_mode):
+            return False
+
+    return True
+
+
+def matches_scalar_list_filter_value(value: Any, condition: Any) -> bool:
+    current_items = list(value) if isinstance(value, (list, tuple)) else ensure_list(value)
+
+    if not isinstance(condition, Mapping):
+        if condition is None:
+            return value is None
+        return current_items == ensure_list(condition)
+
+    for operation, expected in dict(condition).items():
+        if operation == "equals":
+            if expected is None:
+                if value is not None:
+                    return False
+                continue
+
+            if current_items != ensure_list(expected):
+                return False
+            continue
+
+        if operation == "has":
+            if expected is None:
+                if not any(item is None for item in current_items):
+                    return False
+                continue
+
+            if expected not in current_items:
+                return False
+            continue
+
+        if operation == "hasEvery":
+            if not all(item in current_items for item in ensure_list(expected)):
+                return False
+            continue
+
+        if operation == "hasSome":
+            if not any(item in current_items for item in ensure_list(expected)):
+                return False
+            continue
+
+        if operation == "isEmpty":
+            if (len(current_items) == 0) != bool(expected):
+                return False
+            continue
+
+        raise ValueError(f"Unsupported scalar list filter operation: {operation}")
+
+    return True
+
+
+def parse_json_path(path: Optional[str]) -> List[Any]:
+    if not path or path == "$":
+        return []
+
+    normalized = str(path)
+    if normalized.startswith("$"):
+        normalized = normalized[1:]
+
+    tokens: List[Any] = []
+    buffer = ""
+    index = 0
+    while index < len(normalized):
+        char = normalized[index]
+        if char == ".":
+            if buffer:
+                tokens.append(buffer)
+                buffer = ""
+        elif char == "[":
+            if buffer:
+                tokens.append(buffer)
+                buffer = ""
+
+            end_index = normalized.find("]", index)
+            if end_index == -1:
+                buffer += normalized[index:]
+                break
+
+            segment = normalized[index + 1:end_index].strip()
+            if (
+                (segment.startswith('"') and segment.endswith('"'))
+                or (segment.startswith("'") and segment.endswith("'"))
+            ):
+                tokens.append(segment[1:-1])
+            else:
+                try:
+                    tokens.append(int(segment))
+                except ValueError:
+                    tokens.append(segment)
+            index = end_index
+        else:
+            buffer += char
+        index += 1
+
+    if buffer:
+        tokens.append(buffer)
+
+    return [token for token in tokens if token != ""]
+
+
+def extract_json_path_value(value: Any, path: Optional[str]) -> Any:
+    current = value
+    for token in parse_json_path(path):
+        if isinstance(token, int):
+            if not isinstance(current, list) or token < 0 or token >= len(current):
+                return JSON_PATH_MISSING
+            current = current[token]
+            continue
+
+        if not isinstance(current, Mapping):
+            return JSON_PATH_MISSING
+        if token not in current:
+            return JSON_PATH_MISSING
+        current = current[token]
+
+    return current
+
+
+def matches_json_array_edge(value: Any, expected: Any, *, from_start: bool) -> bool:
+    if not isinstance(value, list):
+        return False
+
+    expected_items = expected if isinstance(expected, list) else [expected]
+    if len(expected_items) > len(value):
+        return False
+
+    edge = value[:len(expected_items)] if from_start else value[-len(expected_items):]
+    return edge == expected_items
+
+
+def is_unsupported_root_json_structure(expected: Any, path: Optional[str]) -> bool:
+    return False
+
+
+def matches_json_filter_value(value: Any, condition: Any) -> bool:
+    if not isinstance(condition, Mapping):
+        if is_db_null(condition) or is_json_null(condition) or is_any_null(condition):
+            return matches_json_special_null(condition, value, top_level=True)
+        return value == condition
+
+    condition_dict = dict(condition)
+    if not any(operation in JSON_FILTER_OPERATIONS for operation in condition_dict.keys()):
+        return value == condition_dict
+
+    path = cast(Optional[str], condition_dict.get("path"))
+    mode = str(condition_dict.get("mode", "default"))
+    target_value = extract_json_path_value(value, path)
+
+    for operation, expected in condition_dict.items():
+        if operation in ("path", "mode"):
+            continue
+
+        if operation in ("not", "not_"):
+            if is_unsupported_root_json_structure(expected, path):
+                continue
+
+            nested_condition: Any = expected
+            if isinstance(expected, Mapping):
+                nested_dict = dict(expected)
+                if path is not None and "path" not in nested_dict:
+                    nested_dict["path"] = path
+                if mode != "default" and "mode" not in nested_dict:
+                    nested_dict["mode"] = mode
+                nested_condition = nested_dict
+            elif path is not None or mode != "default":
+                nested_condition = {"equals": expected}
+                if path is not None:
+                    nested_condition["path"] = path
+                if mode != "default":
+                    nested_condition["mode"] = mode
+
+            if matches_json_filter_value(value, nested_condition):
+                return False
+            continue
+
+        if operation == "equals":
+            if target_value is JSON_PATH_MISSING:
+                return False
+            if is_unsupported_root_json_structure(expected, path):
+                return False
+            if is_db_null(expected) or is_json_null(expected) or is_any_null(expected):
+                if not matches_json_special_null(expected, target_value, top_level=path is None):
+                    return False
+                continue
+            if target_value != expected:
+                return False
+            continue
+
+        if operation in ("string_contains", "string_starts_with", "string_ends_with"):
+            if not isinstance(target_value, str):
+                return False
+
+            current_value, expected_value = _normalize_filter_values(
+                target_value,
+                str(expected),
+                mode,
+            )
+            if operation == "string_contains" and expected_value not in current_value:
+                return False
+            if operation == "string_starts_with" and not current_value.startswith(expected_value):
+                return False
+            if operation == "string_ends_with" and not current_value.endswith(expected_value):
+                return False
+            continue
+
+        if operation == "array_starts_with":
+            if not matches_json_array_edge(target_value, expected, from_start=True):
+                return False
+            continue
+
+        if operation == "array_ends_with":
+            if not matches_json_array_edge(target_value, expected, from_start=False):
+                return False
+            continue
+
+        raise ValueError(f"Unsupported JSON filter operation: {operation}")
+
+    return True
+
+
+def collect_group_by_having_aggregates(
+    having: Optional[Mapping[str, Any]],
+) -> Dict[str, Dict[str, bool]]:
+    requirements: Dict[str, Dict[str, bool]] = {
+        aggregate_key: {} for aggregate_key in GROUP_BY_AGGREGATE_KEYS
+    }
+
+    def visit_field(field: str, condition: Any) -> None:
+        if not isinstance(condition, Mapping):
+            return
+
+        for operation, expected in dict(condition).items():
+            if operation == "mode":
+                continue
+            if operation in GROUP_BY_AGGREGATE_KEYS:
+                requirements[operation][field] = True
+                continue
+            if operation in ("not", "not_"):
+                visit_field(field, expected)
+
+    def visit_clause(clause: Any) -> None:
+        if not isinstance(clause, Mapping):
+            return
+
+        for key, value in dict(clause).items():
+            if key in ("AND", "OR", "NOT"):
+                for nested_clause in ensure_list(value):
+                    visit_clause(nested_clause)
+                continue
+            visit_field(key, value)
+
+    visit_clause(having)
+    return requirements
+
+
+def collect_group_by_order_by_aggregates(
+    order_by: Optional[Union[Sequence[Mapping[str, Any]], Mapping[str, Any]]],
+) -> Dict[str, Dict[str, bool]]:
+    requirements: Dict[str, Dict[str, bool]] = {
+        aggregate_key: {} for aggregate_key in GROUP_BY_AGGREGATE_KEYS
+    }
+    if not order_by:
+        return requirements
+
+    for clause in ensure_list(order_by):
+        if not isinstance(clause, Mapping):
+            continue
+
+        for aggregate_key, value in dict(clause).items():
+            if aggregate_key not in GROUP_BY_AGGREGATE_KEYS or not isinstance(value, Mapping):
+                continue
+
+            for field, direction in dict(value).items():
+                if direction:
+                    requirements[aggregate_key][field] = True
+
+    return requirements
+
+
+def matches_group_by_having_field(
+    row: Mapping[str, Any],
+    field: str,
+    condition: Any,
+    by_fields: Set[str],
+) -> bool:
+    if not isinstance(condition, Mapping):
+        if field not in by_fields:
+            raise ValueError(f"Field '{field}' used in having needs to be provided in 'by'")
+        return matches_scalar_filter_value(get_source_value(row, field), condition)
+
+    mode = str(condition.get("mode", "default"))
+    field_value = get_source_value(row, field)
+
+    for operation, expected in dict(condition).items():
+        if operation == "mode":
+            continue
+
+        if operation in GROUP_BY_AGGREGATE_KEYS:
+            aggregate_row = cast(Mapping[str, Any], row.get(operation) or {})
+            if not matches_scalar_filter_value(get_source_value(aggregate_row, field), expected):
+                return False
+            continue
+
+        if operation in ("not", "not_") and isinstance(expected, Mapping):
+            if matches_group_by_having_field(row, field, expected, by_fields):
+                return False
+            continue
+
+        if field not in by_fields:
+            raise ValueError(f"Field '{field}' used in having needs to be provided in 'by'")
+
+        if operation in ("not", "not_"):
+            if matches_scalar_filter_value(field_value, expected, mode):
+                return False
+            continue
+
+        if not matches_scalar_filter_operation(field_value, operation, expected, mode):
+            return False
+
+    return True
+
+
+def matches_group_by_having(
+    row: Mapping[str, Any],
+    having: Optional[Mapping[str, Any]],
+    by_fields: Set[str],
+    valid_fields: Set[str],
+) -> bool:
+    if not having:
+        return True
+
+    for key, value in dict(having).items():
+        if key == "AND":
+            clauses = [clause for clause in ensure_list(value) if isinstance(clause, Mapping)]
+            if not all(
+                matches_group_by_having(row, cast(Mapping[str, Any], clause), by_fields, valid_fields)
+                for clause in clauses
+            ):
+                return False
+            continue
+
+        if key == "OR":
+            clauses = [clause for clause in ensure_list(value) if isinstance(clause, Mapping)]
+            if not clauses or not any(
+                matches_group_by_having(row, cast(Mapping[str, Any], clause), by_fields, valid_fields)
+                for clause in clauses
+            ):
+                return False
+            continue
+
+        if key == "NOT":
+            clauses = [clause for clause in ensure_list(value) if isinstance(clause, Mapping)]
+            if any(
+                matches_group_by_having(row, cast(Mapping[str, Any], clause), by_fields, valid_fields)
+                for clause in clauses
+            ):
+                return False
+            continue
+
+        if key not in valid_fields:
+            raise ValueError(f"Invalid group_by having field: {key}")
+
+        if not matches_group_by_having_field(row, key, value, by_fields):
+            return False
+
+    return True
+
+
+class BaseDelegate:
+    TABLE = ""
+    PK_FIELDS: List[str] = []
+    PK_SELECTOR = ""
+    UNIQUE_SELECTORS: Dict[str, List[str]] = {}
+    FIELDS: List[str] = []
+    FIELD_TO_COLUMN: Dict[str, str] = {}
+    COLUMN_TO_FIELD: Dict[str, str] = {}
+    DATETIME_FIELDS: List[str] = []
+    UPDATED_AT_FIELDS: List[str] = []
+    JSON_FIELDS: List[str] = []
+    SCALAR_LIST_FIELDS: List[str] = []
+    SCALAR_LIST_FIELD_TYPES: Dict[str, str] = {}
+    SCALAR_LIST_ENUM_FIELDS: Dict[str, Any] = {}
+    RELATION_CONFIGS: Dict[str, Dict[str, Any]] = {}
+
+    def __init__(
+        self,
+        get_conn: Callable[[], Awaitable[Connection]],
+        get_delegate: Callable[[str], Any],
+        commit_if_needed: Callable[[Connection], Awaitable[None]],
+        transaction_scope: Callable[[], Any],
+        is_in_transaction: Callable[[], bool],
+    ) -> None:
+        self._get_conn = get_conn
+        self._get_delegate = get_delegate
+        self._commit_if_needed = commit_if_needed
+        self._transaction_scope = transaction_scope
+        self._is_in_transaction = is_in_transaction
+
+    def _selector_for_fields(self, fields: List[str]) -> str:
+        if fields == self.PK_FIELDS:
+            return self.PK_SELECTOR
+
+        for selector, selector_fields in self.UNIQUE_SELECTORS.items():
+            if selector_fields == fields:
+                return selector
+
+        return "_".join(fields)
+
+    def _db_column(self, field: str) -> str:
+        return self.FIELD_TO_COLUMN.get(field, field)
+
+    def _logical_field(self, column: str) -> str:
+        return self.COLUMN_TO_FIELD.get(column, column)
+
+    def _build_unique_where(self, fields: List[str], source: Any) -> Dict[str, Any]:
+        selector = self._selector_for_fields(fields)
+        return {selector: build_selector_value(source, fields)}
+
+    def _normalize_unique_where(self, where: Mapping[str, Any]) -> Dict[str, Any]:
+        raw_where = dict(where)
+        normalized: Dict[str, Any] = {}
+
+        for key, value in raw_where.items():
+            selector_fields = self.UNIQUE_SELECTORS.get(key)
+            if selector_fields is None:
+                normalized[key] = value
+                continue
+
+            if len(selector_fields) == 1:
+                normalized[selector_fields[0]] = value
+                continue
+
+            if not isinstance(value, Mapping):
+                raise ValueError(f"Compound selector '{key}' expects a mapping value")
+
+            for field in selector_fields:
+                if field not in value:
+                    raise ValueError(f"Missing field '{field}' in selector '{key}'")
+                normalized[field] = value[field]
+
+        if len(normalized) > 1:
+            normalized_keys = set(normalized.keys())
+            if not any(
+                set(fields) == normalized_keys and len(fields) == len(normalized)
+                for fields in self.UNIQUE_SELECTORS.values()
+            ):
+                raise ValueError(f"WhereUniqueInput must target a unique selector: {where}")
+
+        return normalized
+
+    def _unique_fields_for_normalized_where(self, normalized_where: Mapping[str, Any]) -> Optional[List[str]]:
+        normalized_keys = set(normalized_where.keys())
+        for fields in self.UNIQUE_SELECTORS.values():
+            if set(fields) == normalized_keys and len(fields) == len(normalized_keys):
+                return list(fields)
+        return None
+
+    def _build_primary_where(self, source: Any) -> Dict[str, Any]:
+        return self._build_unique_where(self.PK_FIELDS, source)
+
+    def _identity_for_fields(self, source: Any, fields: List[str]) -> Optional[Tuple[Any, ...]]:
+        return build_field_tuple(source, fields)
+
+    def _record_identity(self, source: Any) -> Optional[Tuple[Any, ...]]:
+        return self._identity_for_fields(source, self.PK_FIELDS)
+
+    def _apply_query_options(
+        self,
+        record: Any,
+        select: Optional[Mapping[str, Any]] = None,
+        omit: Optional[Mapping[str, Any]] = None,
+        include: Optional[Mapping[str, Any]] = None,
+    ) -> Any:
+        """Store query options on record for to_dict()"""
+        record._stored_select = dict(select) if select else None
+        record._stored_omit = dict(omit) if omit else None
+        record._stored_include = dict(include) if include else None
+        return record
+
+    def _normalize_relation_option(self, option: Any) -> Optional[Dict[str, Any]]:
+        if option is True:
+            return {}
+        if isinstance(option, Mapping):
+            return dict(option)
+        return None
+
+    def _build_relation_load_options(
+        self,
+        select: Optional[Mapping[str, Any]] = None,
+        include: Optional[Mapping[str, Any]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        load_options: Dict[str, Any] = {}
+
+        if include:
+            for relation_name, value in dict(include).items():
+                if relation_name in self.RELATION_CONFIGS and value:
+                    load_options[relation_name] = dict(value) if isinstance(value, Mapping) else True
+
+        if select:
+            for relation_name, value in dict(select).items():
+                if relation_name not in self.RELATION_CONFIGS or not value:
+                    continue
+
+                existing = load_options.get(relation_name)
+                if isinstance(value, Mapping):
+                    value_dict = dict(value)
+                    if existing is True or existing is None:
+                        load_options[relation_name] = value_dict
+                        continue
+
+                    if isinstance(existing, Mapping):
+                        merged = dict(existing)
+                        for nested_key, nested_value in value_dict.items():
+                            if (
+                                nested_key in ("select", "include", "omit")
+                                and isinstance(merged.get(nested_key), Mapping)
+                                and isinstance(nested_value, Mapping)
+                            ):
+                                merged[nested_key] = {
+                                    **dict(cast(Mapping[str, Any], merged[nested_key])),
+                                    **dict(nested_value),
+                                }
+                            else:
+                                merged[nested_key] = nested_value
+                        load_options[relation_name] = merged
+                    else:
+                        load_options[relation_name] = value_dict
+                else:
+                    load_options.setdefault(relation_name, True)
+
+        return load_options or None
+
+    def _extract_count_requests(
+        self,
+        select: Optional[Mapping[str, Any]] = None,
+        include: Optional[Mapping[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        requests: Dict[str, Any] = {}
+
+        for source in (include, select):
+            if not source:
+                continue
+
+            count_option = dict(source).get("_count")
+            if not count_option:
+                continue
+
+            if count_option is True:
+                for relation_name in self.RELATION_CONFIGS.keys():
+                    requests.setdefault(relation_name, True)
+                continue
+
+            if not isinstance(count_option, Mapping):
+                continue
+
+            raw_option = count_option.get("select")
+            if isinstance(raw_option, Mapping):
+                count_map = dict(raw_option)
+            else:
+                count_map = {
+                    key: value
+                    for key, value in dict(count_option).items()
+                    if key != "select"
+                }
+
+            for relation_name, relation_option in count_map.items():
+                if relation_name not in self.RELATION_CONFIGS or not relation_option:
+                    continue
+
+                existing = requests.get(relation_name)
+                if relation_option is True:
+                    requests[relation_name] = True
+                    continue
+
+                if isinstance(relation_option, Mapping):
+                    merged = dict(existing) if isinstance(existing, Mapping) else {}
+                    merged.update(dict(relation_option))
+                    requests[relation_name] = merged
+                    continue
+
+                requests.setdefault(relation_name, True)
+
+        return requests
+
+    def _combine_where_clauses(self, *clauses: Optional[Mapping[str, Any]]) -> Optional[Dict[str, Any]]:
+        parts = [dict(clause) for clause in clauses if clause]
+        if not parts:
+            return None
+        if len(parts) == 1:
+            return parts[0]
+        return {"AND": parts}
+
+    def _prepare_create_data(self, data_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """Prepare data dict for insert"""
+        for key in list(data_dict.keys()):
+            if key not in self.FIELDS:
+                del data_dict[key]
+
+        for k, v in list(data_dict.items()):
+            if k in self.SCALAR_LIST_FIELDS:
+                data_dict[k] = serialize_scalar_list_field_value(
+                    v,
+                    self.SCALAR_LIST_FIELD_TYPES.get(k, "Any"),
+                    self.SCALAR_LIST_ENUM_FIELDS.get(k),
+                )
+            elif k in self.JSON_FIELDS:
+                data_dict[k] = serialize_json_field_value(v)
+            elif isinstance(v, bool):
+                if SQLBuilder.PROVIDER == "sqlite":
+                    data_dict[k] = 1 if v else 0
+                else:
+                    data_dict[k] = v
+            elif k in self.DATETIME_FIELDS:
+                data_dict[k] = normalize_datetime_field_value(v, SQLBuilder.PROVIDER)
+            elif isinstance(v, PyEnum):
+                # Convert enum to its string value for storage
+                data_dict[k] = v.value
+
+        return data_dict
+
+    def _extract_relation_writes(self, data_dict: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        relation_writes: Dict[str, Dict[str, Any]] = {}
+        for relation_name in self.RELATION_CONFIGS.keys():
+            if relation_name not in data_dict:
+                continue
+
+            value = data_dict.pop(relation_name)
+            if isinstance(value, Mapping):
+                relation_writes[relation_name] = dict(value)
+
+        return relation_writes
+
+    def _ensure_singular_relation_write(self, relation_name: str, records: List[Any]) -> None:
+        if len(records) > 1:
+            raise ValueError(f"Relation '{relation_name}' only accepts a single record")
+
+    async def _resolve_relation_records(self, delegate: Any, selectors: Any, relation_name: str) -> List[Any]:
+        selector_list = ensure_list(selectors)
+        for selector in selector_list:
+            if not isinstance(selector, Mapping):
+                raise ValueError(f"Relation '{relation_name}' expects unique selector mappings")
+
+        simple_field: Optional[str] = None
+        simple_values: List[Any] = []
+        can_batch_simple_selectors = bool(selector_list)
+        delegate_fields = set(getattr(delegate, "FIELDS", []))
+        for selector in selector_list:
+            selector_dict = dict(cast(Mapping[str, Any], selector))
+            if len(selector_dict) != 1:
+                can_batch_simple_selectors = False
+                break
+
+            field, value = next(iter(selector_dict.items()))
+            if field not in delegate_fields or isinstance(value, Mapping):
+                can_batch_simple_selectors = False
+                break
+
+            if simple_field is None:
+                simple_field = field
+            elif simple_field != field:
+                can_batch_simple_selectors = False
+                break
+
+            simple_values.append(value)
+
+        if can_batch_simple_selectors and simple_field is not None:
+            unique_values = list(dict.fromkeys(simple_values))
+            related_records = await delegate.find_many(
+                where={simple_field: {"in_": unique_values}}
+            )
+            by_value = {
+                get_source_value(record, simple_field): record
+                for record in related_records
+            }
+
+            records: List[Any] = []
+            for selector, value in zip(selector_list, simple_values):
+                record = by_value.get(value)
+                if record is None:
+                    raise RecordNotFoundError(
+                        f"Related record for '{relation_name}' was not found: {selector}"
+                    )
+                records.append(record)
+
+            return records
+
+        records: List[Any] = []
+        for selector in selector_list:
+            record = await delegate.find_unique(cast(Dict[str, Any], selector))
+            if record is None:
+                raise RecordNotFoundError(
+                    f"Related record for '{relation_name}' was not found: {selector}"
+                )
+            records.append(record)
+
+        return records
+
+    async def _create_relation_records(self, delegate: Any, payloads: Any, relation_name: str) -> List[Any]:
+        records: List[Any] = []
+        for payload in ensure_list(payloads):
+            if not isinstance(payload, Mapping):
+                raise ValueError(f"Relation '{relation_name}' expects mapping payloads for create")
+
+            records.append(await delegate.create(cast(Dict[str, Any], dict(payload))))
+
+        return records
+
+    async def _connect_or_create_relation_records(
+        self,
+        delegate: Any,
+        payloads: Any,
+        relation_name: str,
+        prepare_create: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
+    ) -> List[Any]:
+        payload_list = ensure_list(payloads)
+        normalized_payloads: List[Mapping[str, Any]] = []
+        simple_field: Optional[str] = None
+        simple_values: List[Any] = []
+        can_batch_simple_where = bool(payload_list)
+        delegate_fields = set(getattr(delegate, "FIELDS", []))
+
+        for payload in payload_list:
+            if not isinstance(payload, Mapping):
+                raise ValueError(
+                    f"Relation '{relation_name}' expects mapping payloads for connectOrCreate"
+                )
+
+            where_clause = payload.get("where")
+            create_clause = payload.get("create")
+            if not isinstance(where_clause, Mapping):
+                raise ValueError(
+                    f"Relation '{relation_name}' connectOrCreate expects a 'where' mapping"
+                )
+            if not isinstance(create_clause, Mapping):
+                raise ValueError(
+                    f"Relation '{relation_name}' connectOrCreate expects a 'create' mapping"
+                )
+
+            normalized_payloads.append(cast(Mapping[str, Any], payload))
+            where_dict = dict(cast(Mapping[str, Any], where_clause))
+            if len(where_dict) != 1:
+                can_batch_simple_where = False
+                continue
+
+            field, value = next(iter(where_dict.items()))
+            if field not in delegate_fields or isinstance(value, Mapping):
+                can_batch_simple_where = False
+                continue
+
+            if simple_field is None:
+                simple_field = field
+            elif simple_field != field:
+                can_batch_simple_where = False
+                continue
+
+            simple_values.append(value)
+
+        if can_batch_simple_where and simple_field is not None:
+            unique_values = list(dict.fromkeys(simple_values))
+            related_records = await delegate.find_many(
+                where={simple_field: {"in_": unique_values}}
+            )
+            by_value = {
+                get_source_value(record, simple_field): record
+                for record in related_records
+            }
+
+            records: List[Any] = []
+            for payload, value in zip(normalized_payloads, simple_values):
+                record = by_value.get(value)
+                if record is not None:
+                    records.append(record)
+                    continue
+
+                create_clause = cast(Mapping[str, Any], payload["create"])
+                create_data = dict(create_clause)
+                if prepare_create is not None:
+                    create_data = prepare_create(create_data)
+
+                created_record = await delegate.create(create_data)
+                records.append(created_record)
+                by_value[value] = created_record
+
+            return records
+
+        records: List[Any] = []
+        for payload in normalized_payloads:
+            where_clause = cast(Mapping[str, Any], payload["where"])
+            create_clause = cast(Mapping[str, Any], payload["create"])
+            record = await delegate.find_unique(cast(Dict[str, Any], dict(where_clause)))
+            if record is not None:
+                records.append(record)
+                continue
+
+            create_data = dict(create_clause)
+            if prepare_create is not None:
+                create_data = prepare_create(create_data)
+
+            records.append(await delegate.create(create_data))
+
+        return records
+
+    def _apply_relation_values(
+        self,
+        data_dict: Dict[str, Any],
+        target_fields: List[str],
+        source: Any,
+        source_fields: List[str],
+    ) -> None:
+        for target_field, source_field in zip(target_fields, source_fields):
+            data_dict[target_field] = get_source_value(source, source_field)
+
+    def _build_inverse_parent_where(self, config: Dict[str, Any], record: Any) -> Dict[str, Any]:
+        return {
+            remote_field: get_source_value(record, local_field)
+            for local_field, remote_field in zip(
+                cast(List[str], config["local_fields"]),
+                cast(List[str], config["remote_fields"]),
+            )
+        }
+
+    def _prepare_inverse_relation_create_data(
+        self,
+        config: Dict[str, Any],
+        record: Any,
+        payload: Mapping[str, Any],
+    ) -> Dict[str, Any]:
+        create_data = dict(payload)
+        self._apply_relation_values(
+            create_data,
+            cast(List[str], config["remote_fields"]),
+            record,
+            cast(List[str], config["local_fields"]),
+        )
+        return create_data
+
+    async def _connect_m2m_pairs(
+        self,
+        join_table: str,
+        local_column: str,
+        remote_column: str,
+        pairs: List[Tuple[Any, Any]],
+    ) -> None:
+        unique_pairs = list(dict.fromkeys(pairs))
+        if not unique_pairs:
+            return
+
+        conn = await self._get_conn()
+        sql = build_m2m_insert_sql(join_table, local_column, remote_column)
+        await execute_many_write_query(conn, sql, unique_pairs, self._commit_if_needed)
+
+    async def _disconnect_m2m_pairs(
+        self,
+        join_table: str,
+        local_column: str,
+        remote_column: str,
+        pairs: List[Tuple[Any, Any]],
+    ) -> None:
+        unique_pairs = list(dict.fromkeys(pairs))
+        if not unique_pairs:
+            return
+
+        conn = await self._get_conn()
+        sql = (
+            f'DELETE FROM {SQLBuilder.quote_identifier(join_table)} '
+            f'WHERE {SQLBuilder.quote_identifier(local_column)} = {SQLBuilder.placeholder(0)} '
+            f'AND {SQLBuilder.quote_identifier(remote_column)} = {SQLBuilder.placeholder(1)}'
+        )
+        await execute_many_write_query(conn, sql, unique_pairs, self._commit_if_needed)
+
+    async def _clear_m2m_pairs(self, join_table: str, local_column: str, local_value: Any) -> None:
+        conn = await self._get_conn()
+        sql = (
+            f'DELETE FROM {SQLBuilder.quote_identifier(join_table)} '
+            f'WHERE {SQLBuilder.quote_identifier(local_column)} = {SQLBuilder.placeholder(0)}'
+        )
+        await execute_write_query(conn, sql, [local_value], self._commit_if_needed)
+
+    async def _clear_inverse_relations(
+        self,
+        delegate: Any,
+        relation_name: str,
+        config: Dict[str, Any],
+        record: Any,
+    ) -> None:
+        if not cast(bool, config.get("can_disconnect", False)):
+            raise ValueError(f"Relation '{relation_name}' does not support disconnect")
+
+        clear_data = {
+            field: None for field in cast(List[str], config["remote_fields"])
+        }
+        await delegate.update_many(
+            where=self._build_inverse_parent_where(config, record),
+            data=clear_data,
+        )
+
+    async def _attach_inverse_records(
+        self,
+        delegate: Any,
+        relation_name: str,
+        config: Dict[str, Any],
+        records: List[Any],
+        record: Any,
+    ) -> None:
+        if cast(str, config["kind"]) == "inverse_one":
+            self._ensure_singular_relation_write(relation_name, records)
+
+        update_data = {
+            remote_field: get_source_value(record, local_field)
+            for local_field, remote_field in zip(
+                cast(List[str], config["local_fields"]),
+                cast(List[str], config["remote_fields"]),
+            )
+        }
+
+        for related_record in records:
+            await delegate.update(delegate._build_primary_where(related_record), update_data)
+
+    async def _detach_inverse_records(
+        self,
+        delegate: Any,
+        relation_name: str,
+        config: Dict[str, Any],
+        records: List[Any],
+    ) -> None:
+        if not cast(bool, config.get("can_disconnect", False)):
+            raise ValueError(f"Relation '{relation_name}' does not support disconnect")
+
+        if cast(str, config["kind"]) == "inverse_one":
+            self._ensure_singular_relation_write(relation_name, records)
+
+        clear_data = {
+            field: None for field in cast(List[str], config["remote_fields"])
+        }
+        for related_record in records:
+            await delegate.update(delegate._build_primary_where(related_record), clear_data)
+
+    def _build_owned_relation_selector(
+        self,
+        config: Dict[str, Any],
+        source: Any,
+    ) -> Optional[Dict[str, Any]]:
+        selector: Dict[str, Any] = {}
+        for local_field, remote_field in zip(
+            cast(List[str], config["local_fields"]),
+            cast(List[str], config["remote_fields"]),
+        ):
+            value = get_source_value(source, local_field)
+            if value is None:
+                return None
+            selector[remote_field] = value
+        return selector
+
+    async def _find_owned_related_record(
+        self,
+        delegate: Any,
+        config: Dict[str, Any],
+        source: Any,
+    ) -> Optional[Any]:
+        selector = self._build_owned_relation_selector(config, source)
+        if not selector:
+            return None
+
+        return await delegate.find_unique(
+            delegate._build_unique_where(cast(List[str], config["remote_fields"]), selector)
+        )
+
+    def _normalize_nested_entries(self, payload: Any, relation_name: str) -> List[Dict[str, Any]]:
+        entries: List[Dict[str, Any]] = []
+        for entry in ensure_list(payload):
+            if not isinstance(entry, Mapping):
+                raise ValueError(f"Relation '{relation_name}' expects mapping payloads")
+            entries.append(dict(entry))
+        return entries
+
+
+
+# User table info
+USER_TABLE = "User" 
+USER_PK_FIELDS = ["id"]
+USER_PK_SELECTOR = "id"
+USER_UNIQUE_SELECTORS: Dict[str, List[str]] = {"id": ["id"], "email": ["email"]}
+USER_FIELDS = ["id", "name", "email", "password", "emailVerified", "image", "createdAt", "updatedAt", "roleId"]
+USER_FIELD_TO_COLUMN: Dict[str, str] = {"id": "id", "name": "name", "email": "email", "password": "password", "emailVerified": "emailVerified", "image": "image", "createdAt": "createdAt", "updatedAt": "updatedAt", "roleId": "roleId"}
+USER_COLUMN_TO_FIELD: Dict[str, str] = {"id": "id", "name": "name", "email": "email", "password": "password", "emailVerified": "emailVerified", "image": "image", "createdAt": "createdAt", "updatedAt": "updatedAt", "roleId": "roleId"}
+USER_NUMERIC_FIELDS = ["roleId"]
+USER_DATETIME_FIELDS = ["emailVerified", "createdAt", "updatedAt"]
+USER_UPDATED_AT_FIELDS = ["updatedAt"]
+USER_JSON_FIELDS = []
+USER_SCALAR_LIST_FIELDS = []
+USER_SCALAR_LIST_FIELD_TYPES: Dict[str, str] = {}
+USER_ENUM_FIELDS: Dict[str, Any] = {}
+USER_SCALAR_LIST_ENUM_FIELDS: Dict[str, Any] = {}
+
+
+# UserRole table info
+USERROLE_TABLE = "UserRole" 
+USERROLE_PK_FIELDS = ["id"]
+USERROLE_PK_SELECTOR = "id"
+USERROLE_UNIQUE_SELECTORS: Dict[str, List[str]] = {"id": ["id"], "name": ["name"]}
+USERROLE_FIELDS = ["id", "name"]
+USERROLE_FIELD_TO_COLUMN: Dict[str, str] = {"id": "id", "name": "name"}
+USERROLE_COLUMN_TO_FIELD: Dict[str, str] = {"id": "id", "name": "name"}
+USERROLE_NUMERIC_FIELDS = ["id"]
+USERROLE_DATETIME_FIELDS = []
+USERROLE_UPDATED_AT_FIELDS = []
+USERROLE_JSON_FIELDS = []
+USERROLE_SCALAR_LIST_FIELDS = []
+USERROLE_SCALAR_LIST_FIELD_TYPES: Dict[str, str] = {}
+USERROLE_ENUM_FIELDS: Dict[str, Any] = {}
+USERROLE_SCALAR_LIST_ENUM_FIELDS: Dict[str, Any] = {}
+
+
+class UserDelegate(BaseDelegate):
+    """Async Direct SQL delegate for User"""
+
+    TABLE = "User"
+    PK_FIELDS = USER_PK_FIELDS
+    PK_SELECTOR = USER_PK_SELECTOR
+    UNIQUE_SELECTORS = USER_UNIQUE_SELECTORS
+    FIELDS = USER_FIELDS
+    FIELD_TO_COLUMN = USER_FIELD_TO_COLUMN
+    COLUMN_TO_FIELD = USER_COLUMN_TO_FIELD
+    NUMERIC_FIELDS = USER_NUMERIC_FIELDS
+    DATETIME_FIELDS = USER_DATETIME_FIELDS
+    UPDATED_AT_FIELDS = USER_UPDATED_AT_FIELDS
+    JSON_FIELDS = USER_JSON_FIELDS
+    SCALAR_LIST_FIELDS = USER_SCALAR_LIST_FIELDS
+    SCALAR_LIST_FIELD_TYPES = USER_SCALAR_LIST_FIELD_TYPES
+    ENUM_FIELDS = USER_ENUM_FIELDS
+    SCALAR_LIST_ENUM_FIELDS = USER_SCALAR_LIST_ENUM_FIELDS
+    RELATION_CONFIGS: Dict[str, Dict[str, Any]] = {
+        "userRole": {"model": "UserRole", "kind": "owned", "local_fields": ["roleId"], "remote_fields": ["id"], "can_disconnect": True}
+    }
+
+    def _row_to_model(self, row: Any, columns: List[str]) -> User:
+        """Convert row to model instance"""
+        if isinstance(row, dict):
+            data = {
+                self._logical_field(str(key)): value
+                for key, value in row.items()
+            }
+        else:
+            data = dict(zip(columns, row))
+        # Convert datetime strings back to datetime objects
+        if data.get("emailVerified") and isinstance(data["emailVerified"], str):
+            try:
+                data["emailVerified"] = datetime.fromisoformat(data["emailVerified"])
+            except: pass
+        if data.get("createdAt") and isinstance(data["createdAt"], str):
+            try:
+                data["createdAt"] = datetime.fromisoformat(data["createdAt"])
+            except: pass
+        if data.get("updatedAt") and isinstance(data["updatedAt"], str):
+            try:
+                data["updatedAt"] = datetime.fromisoformat(data["updatedAt"])
+            except: pass
+
+
+
+        # Convert enum string values back to enum instances
+        for enum_field, enum_class in self.ENUM_FIELDS.items():
+            if enum_field in data and data[enum_field] is not None:
+                try:
+                    data[enum_field] = enum_class(data[enum_field])
+                except (ValueError, KeyError):
+                    pass  # Keep original value if conversion fails
+        return User(**{k: v for k, v in data.items() if k in self.FIELDS})
+
+    def _relation_filter_requires_python_evaluation(
+        self,
+        relation_name: str,
+        condition: Any,
+    ) -> bool:
+        config = self.RELATION_CONFIGS.get(relation_name)
+        if config is None or not isinstance(condition, Mapping):
+            return True
+
+        related_delegate = self._get_delegate(cast(str, config["model"]))
+        if related_delegate is None:
+            return True
+
+        # SQL generation currently uses table names as references. Self-relations
+        # need aliases to avoid ambiguous identifiers, so keep those on the safe
+        # Python path until alias-aware SQL generation lands.
+        if related_delegate.TABLE == self.TABLE:
+            return True
+
+        kind = cast(str, config["kind"])
+        condition_dict = dict(condition)
+
+        if kind in ("m2m", "inverse_many"):
+            for operator, nested_where in condition_dict.items():
+                if operator not in ("some", "none", "every"):
+                    return True
+                if not isinstance(nested_where, Mapping):
+                    return True
+                if related_delegate._where_requires_python_evaluation(
+                    cast(Mapping[str, Any], nested_where)
+                ):
+                    return True
+            return False
+
+        relation_operators = [
+            operator for operator in condition_dict.keys() if operator in ("is", "isNot")
+        ]
+        if relation_operators:
+            for operator, nested_where in condition_dict.items():
+                if operator not in ("is", "isNot"):
+                    return True
+                if nested_where is None:
+                    continue
+                if not isinstance(nested_where, Mapping):
+                    return True
+                if related_delegate._where_requires_python_evaluation(
+                    cast(Mapping[str, Any], nested_where)
+                ):
+                    return True
+            return False
+
+        return related_delegate._where_requires_python_evaluation(condition_dict)
+
+    def _build_relation_exists_sql(
+        self,
+        relation_name: str,
+        config: Mapping[str, Any],
+        nested_where: Optional[Mapping[str, Any]],
+        param_offset: int,
+        negate_nested: bool = False,
+    ) -> Tuple[str, List[Any], int]:
+        related_delegate = self._get_delegate(cast(str, config["model"]))
+        if related_delegate is None:
+            raise ValueError(f"Unknown relation delegate for '{relation_name}'")
+
+        kind = cast(str, config["kind"])
+        params: List[Any] = []
+        idx = param_offset
+
+        if kind == "m2m":
+            join_table = cast(str, config["join_table"])
+            local_column = cast(str, config["local_column"])
+            remote_column = cast(str, config["remote_column"])
+            local_pk_field = cast(str, config["local_pk_field"])
+            remote_pk_field = cast(str, config["remote_pk_field"])
+            conditions = [
+                f"{SQLBuilder.column_ref(local_column, join_table)} = {SQLBuilder.column_ref(self._db_column(local_pk_field), self.TABLE)}"
+            ]
+
+            join_sql = (
+                f"{SQLBuilder.quote_identifier(join_table)} "
+                f"INNER JOIN {SQLBuilder.quote_identifier(related_delegate.TABLE)} "
+                f"ON {SQLBuilder.column_ref(related_delegate._db_column(remote_pk_field), related_delegate.TABLE)} = "
+                f"{SQLBuilder.column_ref(remote_column, join_table)}"
+            )
+        else:
+            local_fields = cast(List[str], config["local_fields"])
+            remote_fields = cast(List[str], config["remote_fields"])
+            conditions = [
+                f"{SQLBuilder.column_ref(related_delegate._db_column(remote_field), related_delegate.TABLE)} = {SQLBuilder.column_ref(self._db_column(local_field), self.TABLE)}"
+                for local_field, remote_field in zip(local_fields, remote_fields)
+            ]
+            join_sql = SQLBuilder.quote_identifier(related_delegate.TABLE)
+
+        if nested_where:
+            nested_sql, nested_params, idx = related_delegate._build_sql_where(
+                cast(Mapping[str, Any], nested_where),
+                related_delegate.TABLE,
+                idx,
+            )
+            if nested_sql:
+                conditions.append(f"NOT ({nested_sql})" if negate_nested else f"({nested_sql})")
+                params.extend(nested_params)
+
+        where_sql = " AND ".join(conditions) if conditions else "1 = 1"
+        return f"EXISTS (SELECT 1 FROM {join_sql} WHERE {where_sql})", params, idx
+
+    def _build_relation_filter_sql(
+        self,
+        relation_name: str,
+        condition: Any,
+        param_offset: int,
+    ) -> Tuple[str, List[Any], int]:
+        config = self.RELATION_CONFIGS.get(relation_name)
+        if config is None or not isinstance(condition, Mapping):
+            raise ValueError(f"Unsupported relation filter for '{relation_name}'")
+
+        kind = cast(str, config["kind"])
+        condition_dict = dict(condition)
+        clauses: List[str] = []
+        params: List[Any] = []
+        idx = param_offset
+
+        if kind in ("m2m", "inverse_many"):
+            for operator, nested_where in condition_dict.items():
+                nested_mapping = cast(Mapping[str, Any], nested_where)
+                if operator == "every" and not nested_mapping:
+                    continue
+                exists_sql, exists_params, idx = self._build_relation_exists_sql(
+                    relation_name,
+                    config,
+                    nested_mapping,
+                    idx,
+                    negate_nested=operator == "every",
+                )
+                if operator == "some":
+                    clauses.append(exists_sql)
+                elif operator in ("none", "every"):
+                    clauses.append(f"NOT ({exists_sql})")
+                else:
+                    raise ValueError(
+                        f"Unsupported list relation filter operation '{operator}' for relation '{relation_name}'"
+                    )
+                params.extend(exists_params)
+            return " AND ".join(clauses), params, idx
+
+        relation_operators = [
+            operator for operator in condition_dict.keys() if operator in ("is", "isNot")
+        ]
+        if relation_operators:
+            for operator, nested_where in condition_dict.items():
+                if operator not in ("is", "isNot"):
+                    raise ValueError(
+                        f"Unsupported to-one relation filter operation '{operator}' for relation '{relation_name}'"
+                    )
+                nested_mapping = None if nested_where is None else cast(Mapping[str, Any], nested_where)
+                exists_sql, exists_params, idx = self._build_relation_exists_sql(
+                    relation_name,
+                    config,
+                    nested_mapping,
+                    idx,
+                )
+                clauses.append(exists_sql if operator == "is" else f"NOT ({exists_sql})")
+                params.extend(exists_params)
+            return " AND ".join(clauses), params, idx
+
+        exists_sql, exists_params, idx = self._build_relation_exists_sql(
+            relation_name,
+            config,
+            condition_dict,
+            idx,
+        )
+        return exists_sql, exists_params, idx
+
+    def _build_sql_where(
+        self,
+        where: Optional[Mapping[str, Any]],
+        table: str = "",
+        param_offset: int = 0,
+    ) -> Tuple[str, List[Any], int]:
+        if not where:
+            return "", [], param_offset
+
+        conditions: List[str] = []
+        params: List[Any] = []
+        idx = param_offset
+
+        for key, value in dict(where).items():
+            if key == "AND":
+                sub_conditions: List[str] = []
+                for clause in ensure_list(value):
+                    if not isinstance(clause, Mapping):
+                        continue
+                    sql, nested_params, idx = self._build_sql_where(
+                        cast(Mapping[str, Any], clause),
+                        table,
+                        idx,
+                    )
+                    if sql:
+                        sub_conditions.append(f"({sql})")
+                        params.extend(nested_params)
+                if sub_conditions:
+                    conditions.append(f"({' AND '.join(sub_conditions)})")
+                continue
+
+            if key == "OR":
+                sub_conditions = []
+                for clause in ensure_list(value):
+                    if not isinstance(clause, Mapping):
+                        continue
+                    sql, nested_params, idx = self._build_sql_where(
+                        cast(Mapping[str, Any], clause),
+                        table,
+                        idx,
+                    )
+                    if sql:
+                        sub_conditions.append(f"({sql})")
+                        params.extend(nested_params)
+                if sub_conditions:
+                    conditions.append(f"({' OR '.join(sub_conditions)})")
+                continue
+
+            if key == "NOT":
+                for clause in ensure_list(value):
+                    if not isinstance(clause, Mapping):
+                        continue
+                    sql, nested_params, idx = self._build_sql_where(
+                        cast(Mapping[str, Any], clause),
+                        table,
+                        idx,
+                    )
+                    if sql:
+                        conditions.append(f"NOT ({sql})")
+                        params.extend(nested_params)
+                continue
+
+            if key in self.RELATION_CONFIGS:
+                sql, relation_params, idx = self._build_relation_filter_sql(key, value, idx)
+                if sql:
+                    conditions.append(sql)
+                    params.extend(relation_params)
+                continue
+
+            if key in self.JSON_FIELDS:
+                sql, json_params, idx = SQLBuilder.build_json_filter(
+                    key,
+                    cast(Mapping[str, Any], value),
+                    table,
+                    idx,
+                    self.FIELD_TO_COLUMN,
+                )
+                if sql:
+                    conditions.append(sql)
+                    params.extend(json_params)
+                continue
+
+            sql, scalar_params, idx = SQLBuilder.build_where(
+                {key: value},
+                table,
+                idx,
+                self.FIELD_TO_COLUMN,
+                self.SCALAR_LIST_FIELDS,
+            )
+            if sql:
+                conditions.append(sql)
+                params.extend(scalar_params)
+
+        return " AND ".join(conditions), params, idx
+
+    def _merge_relation_filter_load_options(
+        self,
+        target: Dict[str, Any],
+        source: Optional[Mapping[str, Any]],
+    ) -> None:
+        if not source:
+            return
+
+        for relation_name, incoming in dict(source).items():
+            existing = target.get(relation_name)
+            if isinstance(existing, Mapping) and isinstance(incoming, Mapping):
+                merged = dict(existing)
+                merged_include = dict(cast(Mapping[str, Any], merged.get("include") or {}))
+                incoming_include = cast(Mapping[str, Any], incoming.get("include") or {})
+                self._merge_relation_filter_load_options(merged_include, incoming_include)
+                if merged_include:
+                    merged["include"] = merged_include
+                target[relation_name] = merged
+                continue
+
+            if existing is True and isinstance(incoming, Mapping):
+                target[relation_name] = dict(incoming)
+                continue
+
+            if isinstance(existing, Mapping) and incoming is True:
+                continue
+
+            target[relation_name] = dict(incoming) if isinstance(incoming, Mapping) else True
+
+    def _build_relation_filter_load_options(
+        self,
+        where: Optional[Mapping[str, Any]],
+    ) -> Optional[Dict[str, Any]]:
+        if not where:
+            return None
+
+        load_options: Dict[str, Any] = {}
+
+        for key, value in dict(where).items():
+            if key in ("AND", "OR", "NOT"):
+                for clause in ensure_list(value):
+                    if isinstance(clause, Mapping):
+                        nested_options = self._build_relation_filter_load_options(
+                            cast(Mapping[str, Any], clause)
+                        )
+                        self._merge_relation_filter_load_options(load_options, nested_options)
+                continue
+
+            config = self.RELATION_CONFIGS.get(key)
+            if config is None:
+                continue
+
+            option: Any = True
+            if isinstance(value, Mapping):
+                related_delegate = self._get_delegate(cast(str, config["model"]))
+                nested_loads: Dict[str, Any] = {}
+                if cast(str, config["kind"]) in ("m2m", "inverse_many"):
+                    for operator in ("some", "none", "every"):
+                        nested_where = value.get(operator)
+                        if isinstance(nested_where, Mapping):
+                            self._merge_relation_filter_load_options(
+                                nested_loads,
+                                related_delegate._build_relation_filter_load_options(
+                                    cast(Mapping[str, Any], nested_where)
+                                ),
+                            )
+                else:
+                    has_relation_operator = False
+                    for operator in ("is", "isNot"):
+                        if operator not in value:
+                            continue
+                        has_relation_operator = True
+                        nested_where = value.get(operator)
+                        if isinstance(nested_where, Mapping):
+                            self._merge_relation_filter_load_options(
+                                nested_loads,
+                                related_delegate._build_relation_filter_load_options(
+                                    cast(Mapping[str, Any], nested_where)
+                                ),
+                            )
+                    if not has_relation_operator:
+                        self._merge_relation_filter_load_options(
+                            nested_loads,
+                            related_delegate._build_relation_filter_load_options(
+                                cast(Mapping[str, Any], value)
+                            ),
+                        )
+
+                if nested_loads:
+                    option = {"include": nested_loads}
+
+            self._merge_relation_filter_load_options(load_options, {key: option})
+
+        return load_options or None
+
+    def _where_requires_python_evaluation(
+        self,
+        where: Optional[Mapping[str, Any]],
+    ) -> bool:
+        if not where:
+            return False
+
+        for key, value in dict(where).items():
+            if key in ("AND", "OR", "NOT"):
+                if any(
+                    self._where_requires_python_evaluation(cast(Mapping[str, Any], clause))
+                    for clause in ensure_list(value)
+                    if isinstance(clause, Mapping)
+                ):
+                    return True
+                continue
+
+            if key in self.RELATION_CONFIGS:
+                if self._relation_filter_requires_python_evaluation(key, value):
+                    return True
+                continue
+
+            if key in self.JSON_FIELDS:
+                if not SQLBuilder.can_build_json_filter(value):
+                    return True
+                continue
+
+            if key in self.SCALAR_LIST_FIELDS and SQLBuilder.PROVIDER != "postgresql":
+                return True
+
+        return False
+
+    def _matches_relation_filter(
+        self,
+        relation_name: str,
+        relation_value: Any,
+        condition: Any,
+    ) -> bool:
+        config = self.RELATION_CONFIGS.get(relation_name)
+        if config is None:
+            raise ValueError(f"Unknown relation filter: {relation_name}")
+
+        if not isinstance(condition, Mapping):
+            raise ValueError(f"Relation filter '{relation_name}' expects a mapping value")
+
+        delegate = self._get_delegate(cast(str, config["model"]))
+        relation_kind = cast(str, config["kind"])
+
+        if relation_kind in ("m2m", "inverse_many"):
+            items = relation_value if isinstance(relation_value, list) else []
+            for operation, expected in dict(condition).items():
+                if operation not in ("some", "none", "every"):
+                    raise ValueError(
+                        f"Unsupported list relation filter operation '{operation}' for relation '{relation_name}'"
+                    )
+                if not isinstance(expected, Mapping):
+                    raise ValueError(
+                        f"List relation filter '{relation_name}.{operation}' expects a mapping value"
+                    )
+
+                nested_where = cast(Mapping[str, Any], expected)
+                if operation == "some":
+                    if not any(delegate._record_matches_where(item, nested_where) for item in items):
+                        return False
+                    continue
+                if operation == "none":
+                    if any(delegate._record_matches_where(item, nested_where) for item in items):
+                        return False
+                    continue
+                if not all(delegate._record_matches_where(item, nested_where) for item in items):
+                    return False
+
+            return True
+
+        if not condition:
+            return relation_value is not None
+
+        relation_operators = [
+            operation for operation in dict(condition).keys() if operation in ("is", "isNot")
+        ]
+        if relation_operators:
+            for operation, expected in dict(condition).items():
+                if operation not in ("is", "isNot"):
+                    raise ValueError(
+                        f"Unsupported to-one relation filter operation '{operation}' for relation '{relation_name}'"
+                    )
+
+                if operation == "is":
+                    if expected is None:
+                        if relation_value is not None:
+                            return False
+                        continue
+                    if not isinstance(expected, Mapping):
+                        raise ValueError(
+                            f"To-one relation filter '{relation_name}.is' expects a mapping value or None"
+                        )
+                    if relation_value is None or not delegate._record_matches_where(
+                        relation_value,
+                        cast(Mapping[str, Any], expected),
+                    ):
+                        return False
+                    continue
+
+                if expected is None:
+                    if relation_value is None:
+                        return False
+                    continue
+                if not isinstance(expected, Mapping):
+                    raise ValueError(
+                        f"To-one relation filter '{relation_name}.isNot' expects a mapping value or None"
+                    )
+                if relation_value is not None and delegate._record_matches_where(
+                    relation_value,
+                    cast(Mapping[str, Any], expected),
+                ):
+                    return False
+
+            return True
+
+        if relation_value is None:
+            return False
+
+        return delegate._record_matches_where(
+            relation_value,
+            cast(Mapping[str, Any], condition),
+        )
+
+    def _record_matches_where(self, record: Any, where: Optional[Mapping[str, Any]]) -> bool:
+        if not where:
+            return True
+
+        for key, value in dict(where).items():
+            if key == "AND":
+                clauses = [clause for clause in ensure_list(value) if isinstance(clause, Mapping)]
+                if not all(
+                    self._record_matches_where(record, cast(Mapping[str, Any], clause))
+                    for clause in clauses
+                ):
+                    return False
+                continue
+
+            if key == "OR":
+                clauses = [clause for clause in ensure_list(value) if isinstance(clause, Mapping)]
+                if not clauses or not any(
+                    self._record_matches_where(record, cast(Mapping[str, Any], clause))
+                    for clause in clauses
+                ):
+                    return False
+                continue
+
+            if key == "NOT":
+                clauses = [clause for clause in ensure_list(value) if isinstance(clause, Mapping)]
+                if any(
+                    self._record_matches_where(record, cast(Mapping[str, Any], clause))
+                    for clause in clauses
+                ):
+                    return False
+                continue
+
+            if key in self.RELATION_CONFIGS:
+                if not self._matches_relation_filter(key, getattr(record, key, None), value):
+                    return False
+                continue
+
+            if key in self.JSON_FIELDS:
+                if not matches_json_filter_value(get_source_value(record, key), value):
+                    return False
+                continue
+
+            if key in self.SCALAR_LIST_FIELDS:
+                if not matches_scalar_list_filter_value(get_source_value(record, key), value):
+                    return False
+                continue
+
+            if not matches_scalar_filter_value(get_source_value(record, key), value):
+                return False
+
+        return True
+
+    def _record_matches_unique(self, record: Any, where: Mapping[str, Any]) -> bool:
+        return all(get_source_value(record, field) == value for field, value in dict(where).items())
+
+    def _apply_distinct_results(
+        self,
+        records: List[User],
+        distinct: Optional[List[str]] = None,
+    ) -> List[User]:
+        if not distinct:
+            return records
+
+        seen: Set[Tuple[Any, ...]] = set()
+        unique_records: List[User] = []
+        for record in records:
+            key = tuple(get_source_value(record, field) for field in distinct)
+            if key in seen:
+                continue
+            seen.add(key)
+            unique_records.append(record)
+
+        return unique_records
+
+    def _apply_window_results(
+        self,
+        records: List[User],
+        cursor: Optional[UserWhereUniqueInput] = None,
+        skip: Optional[int] = None,
+        take: Optional[int] = None,
+    ) -> List[User]:
+        offset = skip or 0
+
+        if take == 0:
+            return []
+
+        if cursor:
+            normalized_cursor = self._normalize_unique_where(cast(Mapping[str, Any], cursor))
+            cursor_index: Optional[int] = None
+            for index, record in enumerate(records):
+                if self._record_matches_unique(record, normalized_cursor):
+                    cursor_index = index
+                    break
+
+            if cursor_index is None:
+                return []
+
+            if take is not None and take < 0:
+                end_index = cursor_index + 1 - offset
+                if end_index <= 0:
+                    return []
+                start_index = max(0, end_index + take)
+                return records[start_index:end_index]
+
+            start_index = max(0, cursor_index + offset)
+            if take is None:
+                return records[start_index:]
+            return records[start_index:start_index + take]
+
+        if take is not None and take < 0:
+            end_index = len(records) - offset
+            if end_index <= 0:
+                return []
+            start_index = max(0, end_index + take)
+            return records[start_index:end_index]
+
+        if offset:
+            records = records[offset:]
+
+        if take is not None:
+            return records[:take]
+
+        return records
+
+    async def _load_relation_counts(
+        self,
+        records: List[User],
+        count_requests: Dict[str, Any],
+    ) -> None:
+        if not records or not count_requests:
+            return
+
+        conn = await self._get_conn()
+        handled_count_requests: Set[str] = set()
+
+        remaining_count_requests = {
+            relation_name: option
+            for relation_name, option in count_requests.items()
+            if relation_name not in handled_count_requests
+        }
+        if not remaining_count_requests:
+            return
+
+        count_include = {relation_name: option for relation_name, option in remaining_count_requests.items()}
+        await self._load_relations(records, cast(Any, count_include))
+
+        for record in records:
+            count_data = dict(record._count or {})
+            for relation_name in remaining_count_requests.keys():
+                relation_value = getattr(record, relation_name, None)
+                if isinstance(relation_value, list):
+                    count_data[relation_name] = len(relation_value)
+                else:
+                    count_data[relation_name] = 1 if relation_value is not None else 0
+            record._count = count_data
+
+    def _generate_defaults(self, data_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate default values for ID and timestamp fields"""
+        if "id" not in data_dict:
+            data_dict["id"] = generate_cuid()
+        if "createdAt" not in data_dict:
+            data_dict["createdAt"] = get_datetime_value(SQLBuilder.PROVIDER)
+        if "updatedAt" not in data_dict:
+            data_dict["updatedAt"] = get_datetime_value(SQLBuilder.PROVIDER)
+        return data_dict
+
+    async def _load_relations(
+        self,
+        records: List[User],
+        include: Optional[UserInclude] = None,
+    ) -> None:
+        """Load relations for records based on include dict"""
+        if not include or not records:
+            return
+
+        conn = await self._get_conn()
+
+        # Load userRole relation
+        inc_userRole = include.get("userRole")
+        if inc_userRole:
+            delegate = self._get_delegate("UserRole")
+            nested_include = None
+            nested_select = None
+            nested_omit = None
+            nested_where = None
+            nested_order = None
+            nested_take = None
+            nested_skip = None
+            nested_distinct = None
+            nested_cursor = None
+
+            if isinstance(inc_userRole, dict):
+                nested_include = inc_userRole.get("include")
+                nested_select = inc_userRole.get("select")
+                nested_omit = inc_userRole.get("omit")
+                nested_where = inc_userRole.get("where")
+                nested_order = inc_userRole.get("orderBy")
+                nested_take = inc_userRole.get("take")
+                nested_skip = inc_userRole.get("skip")
+                nested_distinct = inc_userRole.get("distinct")
+                nested_cursor = inc_userRole.get("cursor")
+
+            local_keys = [
+                key
+                for key in (
+                    self._identity_for_fields(record, ["roleId"])
+                    for record in records
+                )
+                if key is not None
+            ]
+            unique_local_keys = list(dict.fromkeys(local_keys))
+
+            if unique_local_keys:
+                if len(unique_local_keys[0]) == 1:
+                    base_where: Dict[str, Any] = {
+                        "id": {"in_": [key_values[0] for key_values in unique_local_keys]}
+                    }
+                else:
+                    base_conditions: List[Dict[str, Any]] = []
+                    for key_values in unique_local_keys:
+                        condition = {
+                            "id": key_values[0],
+                        }
+                        base_conditions.append(condition)
+
+                    base_where = {"OR": base_conditions}
+                if nested_where:
+                    base_where = {"AND": [base_where, nested_where]}
+
+                related = await delegate.find_many(
+                    where=base_where,
+                    select=nested_select,
+                    omit=nested_omit,
+                    include=nested_include,
+                    distinct=nested_distinct,
+                    cursor=nested_cursor,
+                )
+
+                by_key: Dict[Tuple[Any, ...], Any] = {}
+                for rel_rec in related:
+                    rel_key = delegate._identity_for_fields(
+                        rel_rec,
+                        ["id"],
+                    )
+                    if rel_key is not None:
+                        by_key[rel_key] = rel_rec
+
+                for rec in records:
+                    local_key = self._identity_for_fields(
+                        rec,
+                        ["roleId"],
+                    )
+                    rec.userRole = by_key.get(local_key) if local_key is not None else None
+
+    async def find_many(
+        self,
+        where: Optional[UserWhereInput] = None,
+        select: Optional[UserSelect] = None,
+        omit: Optional[UserOmit] = None,
+        include: Optional[UserInclude] = None,
+        order_by: Optional[Union[List[UserOrderBy], UserOrderBy]] = None,
+        skip: Optional[int] = None,
+        take: Optional[int] = None,
+        distinct: Optional[List[str]] = None,
+        cursor: Optional[UserWhereUniqueInput] = None,
+    ) -> List[User]:
+        """Find multiple records with include support"""
+        conn = await self._get_conn()
+
+        select_dict: Optional[SelectDict] = cast(SelectDict, select) if select else None
+        omit_dict: Optional[SelectDict] = cast(SelectDict, omit) if omit else None
+        relation_load_options = self._build_relation_load_options(select, include)
+        where_requires_python_evaluation = self._where_requires_python_evaluation(where)
+        relation_filter_load_options = (
+            self._build_relation_filter_load_options(where)
+            if where_requires_python_evaluation
+            else None
+        )
+        count_requests = self._extract_count_requests(select, include)
+        needs_full_row = bool(
+            where_requires_python_evaluation
+            or relation_load_options
+            or relation_filter_load_options
+            or count_requests
+        )
+        query_select_dict: Optional[SelectDict] = None if needs_full_row else select_dict
+        query_omit_dict: Optional[SelectDict] = None if needs_full_row or select_dict else omit_dict
+
+        cols_sql, selected_fields = SQLBuilder.build_select(self.TABLE, self.FIELDS, query_select_dict, query_omit_dict, field_map=self.FIELD_TO_COLUMN)
+
+        sql = f'SELECT {cols_sql} FROM {SQLBuilder.quote_identifier(self.TABLE)}'
+
+        params: List[Any] = []
+        param_idx = 0
+
+        if where and not where_requires_python_evaluation:
+            where_sql, where_params, param_idx = self._build_sql_where(dict(where), "", param_idx)
+            if where_sql:
+                sql += f" WHERE {where_sql}"
+                params.extend(where_params)
+
+        if order_by:
+            sql += " " + SQLBuilder.build_order_by(order_by, field_map=self.FIELD_TO_COLUMN)
+
+        apply_sql_window = (
+            not where_requires_python_evaluation
+            and cursor is None
+            and not distinct
+            and (take is None or take >= 0)
+        )
+        if apply_sql_window and take is not None:
+            sql += f" LIMIT {take}"
+        if apply_sql_window and skip:
+            sql += f" OFFSET {skip}"
+
+        rows = await fetch_dict_rows(conn, sql, params, selected_fields)
+        results = [self._row_to_model(row, selected_fields) for row in rows]
+
+        if where_requires_python_evaluation:
+            if relation_filter_load_options:
+                await self._load_relations(results, cast(Any, relation_filter_load_options))
+            results = [
+                record
+                for record in results
+                if self._record_matches_where(record, cast(Mapping[str, Any], where))
+            ]
+
+        if distinct:
+            results = self._apply_distinct_results(results, distinct)
+
+        if not apply_sql_window:
+            results = self._apply_window_results(results, cursor, skip, take)
+
+        # Apply query options and load relations
+        for rec in results:
+            self._apply_query_options(rec, select, omit, include)
+
+        if relation_load_options:
+            await self._load_relations(results, cast(Any, relation_load_options))
+
+        if count_requests:
+            await self._load_relation_counts(results, count_requests)
+
+        return results
+
+    async def find_unique(
+        self,
+        where: UserWhereUniqueInput,
+        select: Optional[UserSelect] = None,
+        omit: Optional[UserOmit] = None,
+        include: Optional[UserInclude] = None,
+    ) -> Optional[User]:
+        """Find unique record with include support"""
+        conn = await self._get_conn()
+
+        select_dict: Optional[SelectDict] = cast(SelectDict, select) if select else None
+        omit_dict: Optional[SelectDict] = cast(SelectDict, omit) if omit else None
+        relation_load_options = self._build_relation_load_options(select, include)
+        count_requests = self._extract_count_requests(select, include)
+        needs_full_row = bool(relation_load_options or count_requests)
+        query_select_dict: Optional[SelectDict] = None if needs_full_row else select_dict
+        query_omit_dict: Optional[SelectDict] = None if needs_full_row or select_dict else omit_dict
+
+        cols_sql, selected_fields = SQLBuilder.build_select(self.TABLE, self.FIELDS, query_select_dict, query_omit_dict, field_map=self.FIELD_TO_COLUMN)
+        sql = f'SELECT {cols_sql} FROM {SQLBuilder.quote_identifier(self.TABLE)}'
+
+        normalized_where = self._normalize_unique_where(where)
+        where_sql, params, _ = SQLBuilder.build_where(
+            normalized_where,
+            field_map=self.FIELD_TO_COLUMN,
+            scalar_list_fields=self.SCALAR_LIST_FIELDS,
+        )
+        if where_sql:
+            sql += f" WHERE {where_sql}"
+        sql += " LIMIT 1"
+
+        row = await fetch_dict_row(conn, sql, params, selected_fields)
+        if not row:
+            return None
+
+        result = self._row_to_model(row, selected_fields)
+        self._apply_query_options(result, select, omit, include)
+
+        if relation_load_options:
+            await self._load_relations([result], cast(Any, relation_load_options))
+
+        if count_requests:
+            await self._load_relation_counts([result], count_requests)
+
+        return result
+
+    async def find_unique_or_throw(
+        self,
+        where: UserWhereUniqueInput,
+        select: Optional[UserSelect] = None,
+        omit: Optional[UserOmit] = None,
+        include: Optional[UserInclude] = None,
+    ) -> User:
+        """Find unique or raise error"""
+        result = await self.find_unique(where, select, omit, include)
+        if result is None:
+            raise RecordNotFoundError(f"User not found: {where}")
+        return result
+
+    async def find_first(
+        self,
+        where: Optional[UserWhereInput] = None,
+        select: Optional[UserSelect] = None,
+        omit: Optional[UserOmit] = None,
+        include: Optional[UserInclude] = None,
+        order_by: Optional[Union[List[UserOrderBy], UserOrderBy]] = None,
+        skip: Optional[int] = None,
+        distinct: Optional[List[str]] = None,
+        cursor: Optional[UserWhereUniqueInput] = None,
+    ) -> Optional[User]:
+        """Find first matching record"""
+        results = await self.find_many(
+            where=where, select=select, omit=omit, include=include,
+            order_by=order_by, skip=skip, take=1, distinct=distinct, cursor=cursor
+        )
+        return results[0] if results else None
+
+    async def find_first_or_throw(
+        self,
+        where: Optional[UserWhereInput] = None,
+        select: Optional[UserSelect] = None,
+        omit: Optional[UserOmit] = None,
+        include: Optional[UserInclude] = None,
+        order_by: Optional[Union[List[UserOrderBy], UserOrderBy]] = None,
+        skip: Optional[int] = None,
+    ) -> User:
+        """Find first or raise error"""
+        result = await self.find_first(where, select, omit, include, order_by, skip)
+        if result is None:
+            raise RecordNotFoundError(f"User not found")
+        return result
+
+    async def create(
+        self,
+        data: UserCreateInput,
+        select: Optional[UserSelect] = None,
+        omit: Optional[UserOmit] = None,
+        include: Optional[UserInclude] = None,
+    ) -> User:
+        """Create a new record"""
+        conn = await self._get_conn()
+
+        data_dict = dict(data)
+        relation_writes = self._extract_relation_writes(data_dict)
+        if relation_writes and not self._is_in_transaction():
+            async with self._transaction_scope():
+                return await self.create(data, select=select, omit=omit, include=include)
+        if "id" not in data_dict:
+            data_dict["id"] = generate_cuid()
+        if "createdAt" not in data_dict:
+            data_dict["createdAt"] = get_datetime_value(SQLBuilder.PROVIDER)
+        if "updatedAt" not in data_dict:
+            data_dict["updatedAt"] = get_datetime_value(SQLBuilder.PROVIDER)
+
+        await self._apply_pre_write_relations(data_dict, relation_writes)
+        data_dict = self._prepare_create_data(data_dict)
+
+        fields = [field for field in self.FIELDS if field in data_dict]
+        db_fields = [self._db_column(field) for field in fields]
+        values = [data_dict[k] for k in fields]
+        pk_field = self.PK_FIELDS[0] if len(self.PK_FIELDS) == 1 else None
+        pk_value = data_dict.get(pk_field) if pk_field else None
+        db_pk_field = self._db_column(pk_field) if pk_field else None
+
+        pk_value = await execute_insert_query(
+            conn,
+            self.TABLE,
+            db_fields,
+            values,
+            db_pk_field,
+            pk_value,
+            self._commit_if_needed,
+        )
+
+        if pk_field is not None and pk_value is not None:
+            data_dict[pk_field] = pk_value
+
+        created_where = cast(UserWhereUniqueInput, self._build_primary_where(data_dict))
+        stored_record = await self.find_unique(created_where)
+        if stored_record is None:
+            raise RecordNotFoundError(f"Failed to create User")
+
+        await self._apply_post_write_relations(stored_record, relation_writes)
+        if not (select or omit or include):
+            return stored_record
+
+        result = await self.find_unique(created_where, select=select, omit=omit, include=include)
+        if result is None:
+            raise RecordNotFoundError(f"Failed to load User after create")
+        return result
+
+    async def create_many(
+        self,
+        data: List[UserCreateInput],
+        skip_duplicates: bool = False,
+    ) -> Dict[str, int]:
+        """Create multiple records using batch insert"""
+        if not data:
+            return {"count": 0}
+
+        conn = await self._get_conn()
+
+        prepared_rows: List[Dict[str, Any]] = []
+        for item in data:
+            row = dict(item)
+            row = self._generate_defaults(row)
+            row = self._prepare_create_data(row)
+            prepared_rows.append(row)
+
+        if not prepared_rows:
+            return {"count": 0}
+
+        rows_by_shape: Dict[Tuple[str, ...], List[Dict[str, Any]]] = {}
+        for row in prepared_rows:
+            shape = tuple(field for field in self.FIELDS if field in row)
+            rows_by_shape.setdefault(shape, []).append(row)
+
+        count = 0
+        for field_shape, rows_for_shape in rows_by_shape.items():
+            fields = list(field_shape)
+            db_fields = [self._db_column(field) for field in fields]
+            values_list = [tuple(row.get(f) for f in fields) for row in rows_for_shape]
+            count += await execute_bulk_insert_count(
+                conn,
+                self.TABLE,
+                db_fields,
+                values_list,
+                skip_duplicates,
+            )
+
+        await self._commit_if_needed(conn)
+        return {"count": count}
+
+    async def create_many_and_return(
+        self,
+        data: Union[List[UserCreateInput], UserCreateInput],
+        select: Optional[UserSelect] = None,
+        omit: Optional[UserOmit] = None,
+    ) -> List[User]:
+        """Create multiple records and return the stored rows"""
+        if SQLBuilder.PROVIDER == "mysql":
+            raise NotImplementedError(
+                "create_many_and_return is not natively supported by MySQL. "
+                "Use create_many for bulk inserts, or perform explicit create calls "
+                "inside a transaction when returned rows are required."
+            )
+
+        raw_items = ensure_list(data)
+        if not raw_items:
+            return []
+
+        for item in raw_items:
+            if not isinstance(item, Mapping):
+                raise ValueError("create_many_and_return expects mapping payloads")
+
+        has_relation_writes = any(
+            key in self.RELATION_CONFIGS
+            for item in raw_items
+            for key in cast(Mapping[str, Any], item).keys()
+        )
+
+        prepared_rows: List[Dict[str, Any]] = []
+        for item in raw_items:
+            row = self._generate_defaults(dict(cast(Mapping[str, Any], item)))
+            row = self._prepare_create_data(row)
+            prepared_rows.append(row)
+
+        field_shapes = [
+            tuple(key for key in row.keys() if key in self.FIELDS)
+            for row in prepared_rows
+        ]
+        can_use_bulk_return = (
+            not has_relation_writes
+            and bool(field_shapes)
+            and bool(field_shapes[0])
+            and all(shape == field_shapes[0] for shape in field_shapes)
+        )
+
+        if can_use_bulk_return:
+            conn = await self._get_conn()
+            fields = list(field_shapes[0])
+            db_fields = [self._db_column(field) for field in fields]
+            values_list = [tuple(row.get(field) for field in fields) for row in prepared_rows]
+            returning_sql, selected_fields = SQLBuilder.build_select(
+                self.TABLE,
+                self.FIELDS,
+                cast(Optional[SelectDict], select),
+                cast(Optional[SelectDict], omit),
+                field_map=self.FIELD_TO_COLUMN,
+            )
+            rows = await execute_bulk_insert_returning(
+                conn,
+                self.TABLE,
+                db_fields,
+                values_list,
+                returning_sql,
+                self._commit_if_needed,
+            )
+
+            return [
+                self._apply_query_options(
+                    self._row_to_model(row, selected_fields),
+                    select=select,
+                    omit=omit,
+                )
+                for row in rows
+            ]
+
+        created_records: List[User] = []
+        for item in raw_items:
+            created_records.append(
+                await self.create(
+                    cast(UserCreateInput, dict(item)),
+                    select=select,
+                    omit=omit,
+                )
+            )
+
+        return created_records
+
+    async def _find_relation_records_for_write(
+        self,
+        delegate: Any,
+        relation_name: str,
+        config: Dict[str, Any],
+        record: Any,
+        where: Optional[Mapping[str, Any]] = None,
+    ) -> List[Any]:
+        kind = cast(str, config["kind"])
+        if kind == "m2m":
+            parent = await self.find_unique(
+                cast(UserWhereUniqueInput, self._build_primary_where(record)),
+                include=cast(Any, {relation_name: True}),
+            )
+            if parent is None:
+                return []
+
+            related_records = ensure_list(getattr(parent, relation_name, []))
+            remote_pk_field = cast(str, config["remote_pk_field"])
+            remote_ids = [
+                get_source_value(item, remote_pk_field)
+                for item in related_records
+                if get_source_value(item, remote_pk_field) is not None
+            ]
+            if not remote_ids:
+                return []
+
+            combined_where = self._combine_where_clauses(
+                {remote_pk_field: {"in_": remote_ids}},
+                where,
+            )
+            if combined_where is None:
+                return []
+            return await delegate.find_many(where=combined_where)
+
+        combined_where = self._combine_where_clauses(
+            self._build_inverse_parent_where(config, record),
+            where,
+        )
+        if combined_where is None:
+            return []
+        return await delegate.find_many(where=combined_where)
+
+    async def _apply_pre_write_relations(
+        self,
+        data_dict: Dict[str, Any],
+        relation_writes: Dict[str, Dict[str, Any]],
+        existing_record: Optional[Any] = None,
+    ) -> None:
+        for relation_name, write in relation_writes.items():
+            config = self.RELATION_CONFIGS.get(relation_name)
+            if not config or cast(str, config["kind"]) != "owned":
+                continue
+
+            delegate = self._get_delegate(cast(str, config["model"]))
+            local_fields = cast(List[str], config["local_fields"])
+            remote_fields = cast(List[str], config["remote_fields"])
+            current_related = (
+                await self._find_owned_related_record(delegate, config, existing_record)
+                if existing_record is not None
+                else None
+            )
+
+            if write.get("disconnect") is True or (
+                "set" in write and write["set"] in (None, [])
+            ):
+                if not cast(bool, config.get("can_disconnect", False)):
+                    raise ValueError(f"Relation '{relation_name}' does not support disconnect")
+                for field in local_fields:
+                    data_dict[field] = None
+                current_related = None
+
+            if write.get("delete"):
+                if not cast(bool, config.get("can_disconnect", False)):
+                    raise ValueError(f"Relation '{relation_name}' does not support delete")
+                if current_related is not None:
+                    await delegate.delete(delegate._build_primary_where(current_related))
+                for field in local_fields:
+                    data_dict[field] = None
+                current_related = None
+
+            related_records: List[Any] = []
+            if "set" in write and write["set"] not in (None, []):
+                related_records = await self._resolve_relation_records(
+                    delegate,
+                    write["set"],
+                    relation_name,
+                )
+            if "connect" in write:
+                related_records = await self._resolve_relation_records(
+                    delegate,
+                    write["connect"],
+                    relation_name,
+                )
+            if "create" in write:
+                related_records = await self._create_relation_records(
+                    delegate,
+                    write["create"],
+                    relation_name,
+                )
+            if "connectOrCreate" in write:
+                related_records = await self._connect_or_create_relation_records(
+                    delegate,
+                    write["connectOrCreate"],
+                    relation_name,
+                )
+
+            if "update" in write:
+                update_entries = self._normalize_nested_entries(write["update"], relation_name)
+                if len(update_entries) > 1:
+                    raise ValueError(f"Relation '{relation_name}' only accepts a single update payload")
+                if current_related is None:
+                    raise RecordNotFoundError(
+                        f"Related record for '{relation_name}' was not found for nested update"
+                    )
+
+                update_entry = update_entries[0]
+                raw_update_data = update_entry.get("data")
+                if isinstance(raw_update_data, Mapping):
+                    update_data = dict(raw_update_data)
+                else:
+                    update_data = dict(update_entry)
+                current_related = await delegate.update(
+                    delegate._build_primary_where(current_related),
+                    cast(Dict[str, Any], update_data),
+                )
+                if current_related is None:
+                    raise RecordNotFoundError(
+                        f"Failed to update related record for '{relation_name}'"
+                    )
+                related_records = [current_related]
+
+            if "upsert" in write:
+                upsert_entries = self._normalize_nested_entries(write["upsert"], relation_name)
+                if len(upsert_entries) > 1:
+                    raise ValueError(f"Relation '{relation_name}' only accepts a single upsert payload")
+
+                upsert_entry = upsert_entries[0]
+                raw_update_data = upsert_entry.get("update")
+                raw_create_data = upsert_entry.get("create")
+                if current_related is not None:
+                    update_data = dict(raw_update_data) if isinstance(raw_update_data, Mapping) else {}
+                    current_related = await delegate.update(
+                        delegate._build_primary_where(current_related),
+                        cast(Dict[str, Any], update_data),
+                    )
+                    if current_related is None:
+                        raise RecordNotFoundError(
+                            f"Failed to upsert related record for '{relation_name}'"
+                        )
+                    related_records = [current_related]
+                else:
+                    if not isinstance(raw_create_data, Mapping):
+                        raise ValueError(
+                            f"Relation '{relation_name}' requires a mapping create payload for upsert"
+                        )
+                    related_records = await self._create_relation_records(
+                        delegate,
+                        cast(Dict[str, Any], dict(raw_create_data)),
+                        relation_name,
+                    )
+
+            self._ensure_singular_relation_write(relation_name, related_records)
+            if related_records:
+                self._apply_relation_values(
+                    data_dict,
+                    local_fields,
+                    related_records[0],
+                    remote_fields,
+                )
+
+    async def _apply_post_write_relations(
+        self,
+        record: Any,
+        relation_writes: Dict[str, Dict[str, Any]],
+    ) -> None:
+        for relation_name, write in relation_writes.items():
+            config = self.RELATION_CONFIGS.get(relation_name)
+            if not config:
+                continue
+
+            relation_config = config
+            kind = cast(str, relation_config["kind"])
+            if kind == "owned":
+                continue
+
+            delegate = self._get_delegate(cast(str, relation_config["model"]))
+
+            if kind == "m2m":
+                local_pk_field = cast(str, config["local_pk_field"])
+                remote_pk_field = cast(str, config["remote_pk_field"])
+                join_table = cast(str, config["join_table"])
+                local_column = cast(str, config["local_column"])
+                remote_column = cast(str, config["remote_column"])
+                local_value = get_source_value(record, local_pk_field)
+
+                if local_value is None:
+                    continue
+
+                if "set" in write:
+                    await self._clear_m2m_pairs(join_table, local_column, local_value)
+                    if write["set"] not in (None, []):
+                        set_records = await self._resolve_relation_records(
+                            delegate,
+                            write["set"],
+                            relation_name,
+                        )
+                        set_pairs = [
+                            (local_value, get_source_value(related_record, remote_pk_field))
+                            for related_record in set_records
+                            if get_source_value(related_record, remote_pk_field) is not None
+                        ]
+                        await self._connect_m2m_pairs(
+                            join_table,
+                            local_column,
+                            remote_column,
+                            set_pairs,
+                        )
+
+                create_records = []
+                if "create" in write:
+                    create_records = await self._create_relation_records(
+                        delegate,
+                        write["create"],
+                        relation_name,
+                    )
+
+                connect_records = []
+                if "connect" in write:
+                    connect_records = await self._resolve_relation_records(
+                        delegate,
+                        write["connect"],
+                        relation_name,
+                    )
+
+                connect_or_create_records = []
+                if "connectOrCreate" in write:
+                    connect_or_create_records = await self._connect_or_create_relation_records(
+                        delegate,
+                        write["connectOrCreate"],
+                        relation_name,
+                    )
+
+                connect_pairs = [
+                    (local_value, get_source_value(related_record, remote_pk_field))
+                    for related_record in create_records + connect_records + connect_or_create_records
+                    if get_source_value(related_record, remote_pk_field) is not None
+                ]
+                await self._connect_m2m_pairs(
+                    join_table,
+                    local_column,
+                    remote_column,
+                    connect_pairs,
+                )
+
+                if "update" in write:
+                    update_entries = self._normalize_nested_entries(write["update"], relation_name)
+                    for update_entry in update_entries:
+                        where_clause = update_entry.get("where")
+                        data_clause = update_entry.get("data")
+                        if not isinstance(where_clause, Mapping) or not isinstance(data_clause, Mapping):
+                            raise ValueError(
+                                f"Relation '{relation_name}' update expects 'where' and 'data' mappings"
+                            )
+
+                        target_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                            cast(Mapping[str, Any], where_clause),
+                        )
+                        for target_record in target_records:
+                            await delegate.update(
+                                delegate._build_primary_where(target_record),
+                                cast(Dict[str, Any], dict(data_clause)),
+                            )
+
+                if "updateMany" in write:
+                    update_many_entries = self._normalize_nested_entries(write["updateMany"], relation_name)
+                    for update_entry in update_many_entries:
+                        data_clause = update_entry.get("data")
+                        where_clause = update_entry.get("where")
+                        if not isinstance(data_clause, Mapping):
+                            raise ValueError(
+                                f"Relation '{relation_name}' updateMany expects a 'data' mapping"
+                            )
+
+                        target_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                            cast(Optional[Mapping[str, Any]], where_clause)
+                            if isinstance(where_clause, Mapping)
+                            else None,
+                        )
+                        for target_record in target_records:
+                            await delegate.update(
+                                delegate._build_primary_where(target_record),
+                                cast(Dict[str, Any], dict(data_clause)),
+                            )
+
+                if "upsert" in write:
+                    upsert_entries = self._normalize_nested_entries(write["upsert"], relation_name)
+                    for upsert_entry in upsert_entries:
+                        where_clause = upsert_entry.get("where")
+                        update_clause = upsert_entry.get("update")
+                        create_clause = upsert_entry.get("create")
+                        if not isinstance(where_clause, Mapping):
+                            raise ValueError(
+                                f"Relation '{relation_name}' upsert expects a 'where' mapping"
+                            )
+
+                        target_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                            cast(Mapping[str, Any], where_clause),
+                        )
+                        if target_records:
+                            if not isinstance(update_clause, Mapping):
+                                raise ValueError(
+                                    f"Relation '{relation_name}' upsert expects an 'update' mapping"
+                                )
+                            await delegate.update(
+                                delegate._build_primary_where(target_records[0]),
+                                cast(Dict[str, Any], dict(update_clause)),
+                            )
+                        else:
+                            if not isinstance(create_clause, Mapping):
+                                raise ValueError(
+                                    f"Relation '{relation_name}' upsert expects a 'create' mapping"
+                                )
+                            created_records = await self._create_relation_records(
+                                delegate,
+                                cast(Dict[str, Any], dict(create_clause)),
+                                relation_name,
+                            )
+                            create_pairs = [
+                                (local_value, get_source_value(related_record, remote_pk_field))
+                                for related_record in created_records
+                                if get_source_value(related_record, remote_pk_field) is not None
+                            ]
+                            await self._connect_m2m_pairs(
+                                join_table,
+                                local_column,
+                                remote_column,
+                                create_pairs,
+                            )
+
+                if write.get("delete") is True:
+                    delete_records = await self._find_relation_records_for_write(
+                        delegate,
+                        relation_name,
+                        config,
+                        record,
+                    )
+                    self._ensure_singular_relation_write(relation_name, delete_records)
+                    for delete_record in delete_records:
+                        await delegate.delete(delegate._build_primary_where(delete_record))
+                elif "delete" in write:
+                    delete_entries = self._normalize_nested_entries(write["delete"], relation_name)
+                    for delete_entry in delete_entries:
+                        delete_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                            cast(Mapping[str, Any], delete_entry),
+                        )
+                        for delete_record in delete_records:
+                            await delegate.delete(delegate._build_primary_where(delete_record))
+
+                if "deleteMany" in write:
+                    delete_many_entries = self._normalize_nested_entries(write["deleteMany"], relation_name)
+                    for delete_entry in delete_many_entries:
+                        delete_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                            cast(Optional[Mapping[str, Any]], delete_entry),
+                        )
+                        for delete_record in delete_records:
+                            await delegate.delete(delegate._build_primary_where(delete_record))
+
+                if write.get("disconnect") is True:
+                    await self._clear_m2m_pairs(join_table, local_column, local_value)
+                elif "disconnect" in write:
+                    disconnect_records = await self._resolve_relation_records(
+                        delegate,
+                        write["disconnect"],
+                        relation_name,
+                    )
+                    disconnect_pairs = [
+                        (local_value, get_source_value(related_record, remote_pk_field))
+                        for related_record in disconnect_records
+                        if get_source_value(related_record, remote_pk_field) is not None
+                    ]
+                    await self._disconnect_m2m_pairs(
+                        join_table,
+                        local_column,
+                        remote_column,
+                        disconnect_pairs,
+                    )
+
+                continue
+
+            if "set" in write:
+                await self._clear_inverse_relations(delegate, relation_name, config, record)
+                if write["set"] not in (None, []):
+                    set_records = await self._resolve_relation_records(
+                        delegate,
+                        write["set"],
+                        relation_name,
+                    )
+                    await self._attach_inverse_records(
+                        delegate,
+                        relation_name,
+                        config,
+                        set_records,
+                        record,
+                    )
+
+            if "create" in write:
+                create_payloads = ensure_list(write["create"])
+                if kind == "inverse_one" and len(create_payloads) > 1:
+                    raise ValueError(f"Relation '{relation_name}' only accepts a single record")
+
+                for payload in create_payloads:
+                    if not isinstance(payload, Mapping):
+                        raise ValueError(
+                            f"Relation '{relation_name}' expects mapping payloads for create"
+                        )
+                    create_data = self._prepare_inverse_relation_create_data(
+                        config,
+                        record,
+                        cast(Mapping[str, Any], payload),
+                    )
+                    await delegate.create(create_data)
+
+            if "connect" in write:
+                connect_records = await self._resolve_relation_records(
+                    delegate,
+                    write["connect"],
+                    relation_name,
+                )
+                await self._attach_inverse_records(
+                    delegate,
+                    relation_name,
+                    config,
+                    connect_records,
+                    record,
+                )
+
+            if "connectOrCreate" in write:
+                connect_or_create_records = await self._connect_or_create_relation_records(
+                    delegate,
+                    write["connectOrCreate"],
+                    relation_name,
+                    lambda payload: self._prepare_inverse_relation_create_data(
+                        relation_config,
+                        record,
+                        payload,
+                    ),
+                )
+                await self._attach_inverse_records(
+                    delegate,
+                    relation_name,
+                    config,
+                    connect_or_create_records,
+                    record,
+                )
+
+            if "update" in write:
+                update_entries = self._normalize_nested_entries(write["update"], relation_name)
+                if kind == "inverse_one" and len(update_entries) > 1:
+                    raise ValueError(f"Relation '{relation_name}' only accepts a single update payload")
+
+                for update_entry in update_entries:
+                    if kind == "inverse_one":
+                        target_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                        )
+                        self._ensure_singular_relation_write(relation_name, target_records)
+                        if not target_records:
+                            raise RecordNotFoundError(
+                                f"Related record for '{relation_name}' was not found for nested update"
+                            )
+                        raw_data = update_entry.get("data")
+                        if isinstance(raw_data, Mapping):
+                            update_data = dict(raw_data)
+                        else:
+                            update_data = dict(update_entry)
+                    else:
+                        where_clause = update_entry.get("where")
+                        data_clause = update_entry.get("data")
+                        if not isinstance(where_clause, Mapping) or not isinstance(data_clause, Mapping):
+                            raise ValueError(
+                                f"Relation '{relation_name}' update expects 'where' and 'data' mappings"
+                            )
+                        target_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                            cast(Mapping[str, Any], where_clause),
+                        )
+                        update_data = dict(data_clause)
+
+                    for target_record in target_records:
+                        await delegate.update(
+                            delegate._build_primary_where(target_record),
+                            cast(Dict[str, Any], update_data),
+                        )
+
+            if kind == "inverse_many" and "updateMany" in write:
+                update_many_entries = self._normalize_nested_entries(write["updateMany"], relation_name)
+                for update_entry in update_many_entries:
+                    data_clause = update_entry.get("data")
+                    where_clause = update_entry.get("where")
+                    if not isinstance(data_clause, Mapping):
+                        raise ValueError(
+                            f"Relation '{relation_name}' updateMany expects a 'data' mapping"
+                        )
+
+                    target_records = await self._find_relation_records_for_write(
+                        delegate,
+                        relation_name,
+                        config,
+                        record,
+                        cast(Optional[Mapping[str, Any]], where_clause)
+                        if isinstance(where_clause, Mapping)
+                        else None,
+                    )
+                    for target_record in target_records:
+                        await delegate.update(
+                            delegate._build_primary_where(target_record),
+                            cast(Dict[str, Any], dict(data_clause)),
+                        )
+
+            if "upsert" in write:
+                upsert_entries = self._normalize_nested_entries(write["upsert"], relation_name)
+                if kind == "inverse_one" and len(upsert_entries) > 1:
+                    raise ValueError(f"Relation '{relation_name}' only accepts a single upsert payload")
+
+                for upsert_entry in upsert_entries:
+                    if kind == "inverse_one":
+                        target_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                        )
+                        update_clause = upsert_entry.get("update")
+                        create_clause = upsert_entry.get("create")
+                    else:
+                        where_clause = upsert_entry.get("where")
+                        update_clause = upsert_entry.get("update")
+                        create_clause = upsert_entry.get("create")
+                        if not isinstance(where_clause, Mapping):
+                            raise ValueError(
+                                f"Relation '{relation_name}' upsert expects a 'where' mapping"
+                            )
+                        target_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                            cast(Mapping[str, Any], where_clause),
+                        )
+
+                    if target_records:
+                        if not isinstance(update_clause, Mapping):
+                            raise ValueError(
+                                f"Relation '{relation_name}' upsert expects an 'update' mapping"
+                            )
+                        await delegate.update(
+                            delegate._build_primary_where(target_records[0]),
+                            cast(Dict[str, Any], dict(update_clause)),
+                        )
+                    else:
+                        if not isinstance(create_clause, Mapping):
+                            raise ValueError(
+                                f"Relation '{relation_name}' upsert expects a 'create' mapping"
+                            )
+                        create_data = self._prepare_inverse_relation_create_data(
+                            config,
+                            record,
+                            cast(Mapping[str, Any], create_clause),
+                        )
+                        await delegate.create(create_data)
+
+            if write.get("delete") is True:
+                delete_records = await self._find_relation_records_for_write(
+                    delegate,
+                    relation_name,
+                    config,
+                    record,
+                )
+                if kind == "inverse_one":
+                    self._ensure_singular_relation_write(relation_name, delete_records)
+                for delete_record in delete_records:
+                    await delegate.delete(delegate._build_primary_where(delete_record))
+            elif "delete" in write:
+                delete_entries = self._normalize_nested_entries(write["delete"], relation_name)
+                for delete_entry in delete_entries:
+                    delete_records = await self._find_relation_records_for_write(
+                        delegate,
+                        relation_name,
+                        config,
+                        record,
+                        cast(Mapping[str, Any], delete_entry),
+                    )
+                    if kind == "inverse_one":
+                        self._ensure_singular_relation_write(relation_name, delete_records)
+                    for delete_record in delete_records:
+                        await delegate.delete(delegate._build_primary_where(delete_record))
+
+            if kind == "inverse_many" and "deleteMany" in write:
+                delete_many_entries = self._normalize_nested_entries(write["deleteMany"], relation_name)
+                for delete_entry in delete_many_entries:
+                    delete_records = await self._find_relation_records_for_write(
+                        delegate,
+                        relation_name,
+                        config,
+                        record,
+                        cast(Optional[Mapping[str, Any]], delete_entry),
+                    )
+                    for delete_record in delete_records:
+                        await delegate.delete(delegate._build_primary_where(delete_record))
+
+            if write.get("disconnect") is True:
+                await self._clear_inverse_relations(delegate, relation_name, config, record)
+            elif "disconnect" in write:
+                disconnect_records = await self._resolve_relation_records(
+                    delegate,
+                    write["disconnect"],
+                    relation_name,
+                )
+                await self._detach_inverse_records(
+                    delegate,
+                    relation_name,
+                    config,
+                    disconnect_records,
+                )
+
+    async def update(
+        self,
+        where: UserWhereUniqueInput,
+        data: UserUpdateInput,
+        select: Optional[UserSelect] = None,
+        omit: Optional[UserOmit] = None,
+        include: Optional[UserInclude] = None,
+    ) -> Optional[User]:
+        """Update a record"""
+        conn = await self._get_conn()
+
+        existing = await self.find_unique(where)
+        if not existing:
+            return None
+
+        normalized_where = self._normalize_unique_where(where)
+        data_dict = dict(data)
+        relation_writes = self._extract_relation_writes(data_dict)
+        if relation_writes and not self._is_in_transaction():
+            async with self._transaction_scope():
+                return await self.update(where, data, select=select, omit=omit, include=include)
+        data_dict["updatedAt"] = get_datetime_value(SQLBuilder.PROVIDER)
+
+        await self._apply_pre_write_relations(data_dict, relation_writes, existing)
+        for key in list(data_dict.keys()):
+            if key not in self.FIELDS:
+                del data_dict[key]
+
+        for field in self.NUMERIC_FIELDS:
+            if field in data_dict and isinstance(data_dict[field], dict):
+                current = getattr(existing, field)
+                data_dict[field] = apply_atomic_update(current, field, data_dict[field])
+
+        for field in self.SCALAR_LIST_FIELDS:
+            if field in data_dict and isinstance(data_dict[field], Mapping):
+                current = getattr(existing, field)
+                data_dict[field] = apply_scalar_list_update(current, data_dict[field])
+
+        for k, v in list(data_dict.items()):
+            if k in self.SCALAR_LIST_FIELDS:
+                data_dict[k] = serialize_scalar_list_field_value(
+                    v,
+                    self.SCALAR_LIST_FIELD_TYPES.get(k, "Any"),
+                    self.SCALAR_LIST_ENUM_FIELDS.get(k),
+                )
+            elif k in self.JSON_FIELDS:
+                data_dict[k] = serialize_json_field_value(v)
+            elif isinstance(v, bool):
+                if SQLBuilder.PROVIDER == "sqlite":
+                    data_dict[k] = 1 if v else 0
+                else:
+                    data_dict[k] = v
+            elif k in self.DATETIME_FIELDS:
+                data_dict[k] = normalize_datetime_field_value(v, SQLBuilder.PROVIDER)
+            elif isinstance(v, PyEnum):
+                data_dict[k] = v.value
+
+        fields = [k for k in data_dict.keys() if k in self.FIELDS and k not in self.PK_FIELDS]
+        record_where = cast(UserWhereUniqueInput, self._build_primary_where(existing))
+        if not fields:
+            stored_record = await self.find_unique(record_where)
+            if stored_record is None:
+                return None
+            await self._apply_post_write_relations(stored_record, relation_writes)
+            if not (select or omit or include):
+                return stored_record
+            return await self.find_unique(record_where, select=select, omit=omit, include=include)
+
+        set_parts = []
+        values = []
+        for i, f in enumerate(fields):
+            set_parts.append(f'{SQLBuilder.quote_identifier(self._db_column(f))} = {SQLBuilder.placeholder(i)}')
+            values.append(data_dict[f])
+
+        set_clause = ", ".join(set_parts)
+        where_sql, where_params, _ = SQLBuilder.build_where(
+            normalized_where,
+            "",
+            len(fields),
+            self.FIELD_TO_COLUMN,
+            self.SCALAR_LIST_FIELDS,
+        )
+        sql = f'UPDATE {SQLBuilder.quote_identifier(self.TABLE)} SET {set_clause} WHERE {where_sql}'
+
+        await execute_write_query(conn, sql, values + where_params, self._commit_if_needed)
+
+        stored_record = await self.find_unique(record_where)
+        if stored_record is None:
+            return None
+
+        await self._apply_post_write_relations(stored_record, relation_writes)
+        if not (select or omit or include):
+            return stored_record
+        return await self.find_unique(record_where, select=select, omit=omit, include=include)
+
+    async def update_many(
+        self,
+        where: Optional[UserWhereInput],
+        data: UserUpdateInput,
+        limit: Optional[int] = None,
+    ) -> Dict[str, int]:
+        """Update multiple records"""
+        data_dict = dict(data)
+        data_dict["updatedAt"] = get_datetime_value(SQLBuilder.PROVIDER)
+
+        for key in list(data_dict.keys()):
+            if key not in self.FIELDS:
+                del data_dict[key]
+
+        has_scalar_list_operations = any(
+            isinstance(data_dict.get(f), Mapping) for f in self.SCALAR_LIST_FIELDS
+        )
+
+        for k, v in list(data_dict.items()):
+            if k in self.SCALAR_LIST_FIELDS and not isinstance(v, Mapping):
+                data_dict[k] = serialize_scalar_list_field_value(
+                    v,
+                    self.SCALAR_LIST_FIELD_TYPES.get(k, "Any"),
+                    self.SCALAR_LIST_ENUM_FIELDS.get(k),
+                )
+            elif k in self.JSON_FIELDS:
+                data_dict[k] = serialize_json_field_value(v)
+            elif isinstance(v, bool):
+                if SQLBuilder.PROVIDER == "sqlite":
+                    data_dict[k] = 1 if v else 0
+                else:
+                    data_dict[k] = v
+            elif k in self.DATETIME_FIELDS:
+                data_dict[k] = normalize_datetime_field_value(v, SQLBuilder.PROVIDER)
+            elif isinstance(v, PyEnum):
+                data_dict[k] = v.value
+
+        where_requires_python_evaluation = self._where_requires_python_evaluation(where)
+        has_atomic = any(isinstance(data_dict.get(f), dict) for f in self.NUMERIC_FIELDS)
+
+        if has_atomic or has_scalar_list_operations or where_requires_python_evaluation or limit is not None:
+            records = await self.find_many(where=where, take=limit)
+            scalar_data = cast(UserUpdateInput, data_dict)
+            for rec in records:
+                await self.update(
+                    cast(UserWhereUniqueInput, self._build_primary_where(rec)),
+                    scalar_data,
+                )
+            return {"count": len(records)}
+
+        fields = [k for k in data_dict.keys() if k in self.FIELDS and k not in self.PK_FIELDS]
+
+        conn = await self._get_conn()
+
+        set_parts = []
+        values = []
+        for i, f in enumerate(fields):
+            set_parts.append(f'{SQLBuilder.quote_identifier(self._db_column(f))} = {SQLBuilder.placeholder(i)}')
+            values.append(data_dict[f])
+
+        set_clause = ", ".join(set_parts)
+        where_sql = ""
+        where_params: List[Any] = []
+        if where:
+            where_sql, where_params, _ = self._build_sql_where(dict(where), "", len(fields))
+        sql = f'UPDATE {SQLBuilder.quote_identifier(self.TABLE)} SET {set_clause}'
+        if where_sql:
+            sql += f" WHERE {where_sql}"
+
+        count = await execute_write_query(
+            conn,
+            sql,
+            values + where_params,
+            self._commit_if_needed,
+        )
+
+        return {"count": count}
+
+    async def update_many_and_return(
+        self,
+        data: UserUpdateInput,
+        where: Optional[UserWhereInput] = None,
+        limit: Optional[int] = None,
+        select: Optional[UserSelect] = None,
+        omit: Optional[UserOmit] = None,
+    ) -> List[User]:
+        """Update multiple records and return the stored rows"""
+        data_dict = dict(data)
+        for field in self.UPDATED_AT_FIELDS:
+            data_dict[field] = get_datetime_value(SQLBuilder.PROVIDER)
+
+        for key in list(data_dict.keys()):
+            if key not in self.FIELDS:
+                del data_dict[key]
+
+        has_scalar_list_operations = any(
+            isinstance(data_dict.get(f), Mapping) for f in self.SCALAR_LIST_FIELDS
+        )
+
+        for k, v in list(data_dict.items()):
+            if k in self.SCALAR_LIST_FIELDS and not isinstance(v, Mapping):
+                data_dict[k] = serialize_scalar_list_field_value(
+                    v,
+                    self.SCALAR_LIST_FIELD_TYPES.get(k, "Any"),
+                    self.SCALAR_LIST_ENUM_FIELDS.get(k),
+                )
+            elif k in self.JSON_FIELDS:
+                data_dict[k] = serialize_json_field_value(v)
+            elif isinstance(v, bool):
+                if SQLBuilder.PROVIDER == "sqlite":
+                    data_dict[k] = 1 if v else 0
+                else:
+                    data_dict[k] = v
+            elif k in self.DATETIME_FIELDS:
+                data_dict[k] = normalize_datetime_field_value(v, SQLBuilder.PROVIDER)
+            elif isinstance(v, PyEnum):
+                data_dict[k] = v.value
+
+        where_requires_python_evaluation = self._where_requires_python_evaluation(where)
+        has_atomic = any(isinstance(data_dict.get(f), dict) for f in self.NUMERIC_FIELDS)
+        can_use_returning_update = (
+            SQLBuilder.PROVIDER != "mysql"
+            and limit is None
+            and not has_atomic
+            and not has_scalar_list_operations
+            and not where_requires_python_evaluation
+        )
+
+        if can_use_returning_update:
+            fields = [k for k in data_dict.keys() if k in self.FIELDS and k not in self.PK_FIELDS]
+            if fields:
+                conn = await self._get_conn()
+                set_parts: List[str] = []
+                values: List[Any] = []
+                for i, f in enumerate(fields):
+                    set_parts.append(f'{SQLBuilder.quote_identifier(self._db_column(f))} = {SQLBuilder.placeholder(i)}')
+                    values.append(data_dict[f])
+
+                where_sql = ""
+                where_params: List[Any] = []
+                if where:
+                    where_sql, where_params, _ = self._build_sql_where(dict(where), "", len(fields))
+
+                returning_sql, selected_fields = SQLBuilder.build_select(
+                    self.TABLE,
+                    self.FIELDS,
+                    cast(Optional[SelectDict], select),
+                    cast(Optional[SelectDict], omit),
+                    field_map=self.FIELD_TO_COLUMN,
+                )
+                sql = (
+                    f'UPDATE {SQLBuilder.quote_identifier(self.TABLE)} '
+                    f'SET {", ".join(set_parts)}'
+                )
+                if where_sql:
+                    sql += f" WHERE {where_sql}"
+                sql += f" RETURNING {returning_sql}"
+
+                rows = await fetch_dict_rows(
+                    conn,
+                    sql,
+                    values + where_params,
+                    selected_fields,
+                )
+                await self._commit_if_needed(conn)
+                return [self._row_to_model(row, selected_fields) for row in rows]
+
+        records = await self.find_many(where=where, take=limit)
+        updated_records: List[User] = []
+        for record in records:
+            updated = await self.update(
+                cast(UserWhereUniqueInput, self._build_primary_where(record)),
+                data,
+                select=select,
+                omit=omit,
+            )
+            if updated is not None:
+                updated_records.append(updated)
+
+        return updated_records
+
+    async def delete(
+        self,
+        where: UserWhereUniqueInput,
+        select: Optional[UserSelect] = None,
+        omit: Optional[UserOmit] = None,
+        include: Optional[UserInclude] = None,
+    ) -> Optional[User]:
+        """Delete a record"""
+        conn = await self._get_conn()
+
+        existing = await self.find_unique(where, select=select, omit=omit, include=include)
+        if not existing:
+            return None
+
+        normalized_where = self._normalize_unique_where(where)
+        where_sql, params, _ = SQLBuilder.build_where(
+            normalized_where,
+            field_map=self.FIELD_TO_COLUMN,
+            scalar_list_fields=self.SCALAR_LIST_FIELDS,
+        )
+        sql = f'DELETE FROM {SQLBuilder.quote_identifier(self.TABLE)} WHERE {where_sql}'
+
+        await execute_write_query(conn, sql, params, self._commit_if_needed)
+        return existing
+
+    async def delete_many(
+        self,
+        where: Optional[UserWhereInput] = None,
+    ) -> Dict[str, int]:
+        """Delete multiple records"""
+        where_requires_python_evaluation = self._where_requires_python_evaluation(where)
+        if where_requires_python_evaluation:
+            records = await self.find_many(where=where)
+            for record in records:
+                await self.delete(cast(UserWhereUniqueInput, self._build_primary_where(record)))
+            return {"count": len(records)}
+
+        conn = await self._get_conn()
+
+        sql = f'DELETE FROM {SQLBuilder.quote_identifier(self.TABLE)}'
+        params: List[Any] = []
+
+        if where:
+            where_sql, params, _ = self._build_sql_where(dict(where))
+            if where_sql:
+                sql += f" WHERE {where_sql}"
+
+        count = await execute_write_query(conn, sql, params, self._commit_if_needed)
+        return {"count": count}
+
+    async def count(
+        self,
+        where: Optional[UserWhereInput] = None,
+        cursor: Optional[UserWhereUniqueInput] = None,
+        take: Optional[int] = None,
+        skip: Optional[int] = None,
+    ) -> int:
+        """Count records"""
+        where_requires_python_evaluation = self._where_requires_python_evaluation(where)
+        if cursor or where_requires_python_evaluation or (take is not None and take < 0):
+            records = await self.find_many(where=where, cursor=cursor, take=take, skip=skip)
+            return len(records)
+
+        conn = await self._get_conn()
+        where_sql = ""
+        params: List[Any] = []
+
+        if where:
+            where_sql, params, _ = self._build_sql_where(dict(where))
+        return await execute_count_query(conn, self.TABLE, where_sql, params, take, skip)
+
+    async def upsert(
+        self,
+        where: UserWhereUniqueInput,
+        create: UserCreateInput,
+        update: UserUpdateInput,
+        select: Optional[UserSelect] = None,
+        omit: Optional[UserOmit] = None,
+        include: Optional[UserInclude] = None,
+    ) -> User:
+        """Update or create"""
+        create_dict = dict(create)
+        update_dict = dict(update)
+        normalized_where = self._normalize_unique_where(where)
+        conflict_fields = self._unique_fields_for_normalized_where(normalized_where)
+
+        has_relation_writes = any(
+            key in self.RELATION_CONFIGS
+            for key in list(create_dict.keys()) + list(update_dict.keys())
+        )
+        has_atomic_updates = any(
+            field in update_dict and isinstance(update_dict[field], Mapping)
+            for field in self.NUMERIC_FIELDS
+        )
+        has_scalar_list_operations = any(
+            field in update_dict and isinstance(update_dict[field], Mapping)
+            for field in self.SCALAR_LIST_FIELDS
+        )
+
+        can_use_native_upsert = bool(conflict_fields) and not (
+            has_relation_writes or has_atomic_updates or has_scalar_list_operations
+        )
+
+        if can_use_native_upsert:
+            create_dict = self._generate_defaults(create_dict)
+            update_dict["updatedAt"] = get_datetime_value(SQLBuilder.PROVIDER)
+            create_dict = self._prepare_create_data(create_dict)
+            update_dict = self._prepare_create_data(update_dict)
+            normalized_conflict_values = self._prepare_create_data(dict(normalized_where))
+
+            assert conflict_fields is not None
+            for field in conflict_fields:
+                if field not in create_dict or create_dict.get(field) != normalized_conflict_values.get(field):
+                    can_use_native_upsert = False
+                    break
+
+            insert_fields = [field for field in create_dict.keys() if field in self.FIELDS]
+            update_fields = [
+                field
+                for field in update_dict.keys()
+                if field in self.FIELDS and field not in self.PK_FIELDS
+            ]
+            if not insert_fields:
+                can_use_native_upsert = False
+
+            if can_use_native_upsert:
+                conn = await self._get_conn()
+                insert_values = [create_dict[field] for field in insert_fields]
+                update_values = [update_dict[field] for field in update_fields]
+                await execute_native_upsert(
+                    conn,
+                    self.TABLE,
+                    [self._db_column(field) for field in conflict_fields],
+                    [self._db_column(field) for field in insert_fields],
+                    insert_values,
+                    [self._db_column(field) for field in update_fields],
+                    update_values,
+                    self._commit_if_needed,
+                )
+
+                result = await self.find_unique(where, select=select, omit=omit, include=include)
+                if result is None:
+                    raise RecordNotFoundError(f"Failed to load User after upsert")
+                return result
+
+        existing = await self.find_unique(where)
+        if existing:
+            result = await self.update(where, update, select=select, omit=omit, include=include)
+            if result is None:
+                raise RecordNotFoundError(f"Failed to update User")
+            return result
+        return await self.create(create, select=select, omit=omit, include=include)
+
+    async def aggregate(
+        self,
+        where: Optional[UserWhereInput] = None,
+        _count: Optional[Union[bool, Dict[str, bool]]] = None,
+        _avg: Optional[Dict[str, bool]] = None,
+        _sum: Optional[Dict[str, bool]] = None,
+        _min: Optional[Dict[str, bool]] = None,
+        _max: Optional[Dict[str, bool]] = None,
+    ) -> Dict[str, Any]:
+        """Aggregate operations"""
+        where_requires_python_evaluation = self._where_requires_python_evaluation(where)
+        if where_requires_python_evaluation:
+            records = await self.find_many(where=where)
+            return build_python_aggregate_result(
+                records,
+                self.FIELDS,
+                _count,
+                _avg,
+                _sum,
+                _min,
+                _max,
+            )
+
+        conn = await self._get_conn()
+        where_sql = ""
+        params: List[Any] = []
+        if where:
+            where_sql, params, _ = self._build_sql_where(dict(where))
+        return await execute_sql_aggregate(
+            conn,
+            self.TABLE,
+            self.FIELDS,
+            where_sql,
+            params,
+            _count,
+            _avg,
+            _sum,
+            _min,
+            _max,
+            self.FIELD_TO_COLUMN,
+        )
+
+    async def group_by(
+        self,
+        by: List[str],
+        where: Optional[UserWhereInput] = None,
+        order_by: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None,
+        having: Optional[Dict[str, Any]] = None,
+        take: Optional[int] = None,
+        skip: Optional[int] = None,
+        _count: Optional[Union[bool, Dict[str, bool]]] = None,
+        _avg: Optional[Dict[str, bool]] = None,
+        _sum: Optional[Dict[str, bool]] = None,
+        _min: Optional[Dict[str, bool]] = None,
+        _max: Optional[Dict[str, bool]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Group records by scalar fields and compute aggregates"""
+        if not by:
+            raise ValueError("group_by requires at least one field in 'by'")
+
+        invalid_fields = [field for field in by if field not in self.FIELDS]
+        if invalid_fields:
+            raise ValueError(f"Invalid group_by fields: {invalid_fields}")
+
+        valid_fields = set(self.FIELDS)
+        requested_aggregate_inputs = {
+            "_avg": _avg,
+            "_sum": _sum,
+            "_min": _min,
+            "_max": _max,
+        }
+        requested_aggregate_maps = {
+            agg_name: dict(agg_fields) if agg_fields else None
+            for agg_name, agg_fields in requested_aggregate_inputs.items()
+        }
+        requested_count_map = dict(_count) if isinstance(_count, Mapping) else None
+
+        # Aggregate rows may be needed for output, having filters, or aggregate order_by clauses.
+        having_aggregate_inputs = collect_group_by_having_aggregates(having)
+        order_by_aggregate_inputs = collect_group_by_order_by_aggregates(order_by)
+
+        computed_aggregate_inputs: Dict[str, Dict[str, bool]] = {}
+        for agg_name, requested_fields in requested_aggregate_maps.items():
+            merged_fields = {
+                **build_truthy_field_map(requested_fields, valid_fields),
+                **build_truthy_field_map(having_aggregate_inputs.get(agg_name), valid_fields),
+                **build_truthy_field_map(order_by_aggregate_inputs.get(agg_name), valid_fields),
+            }
+            if merged_fields:
+                computed_aggregate_inputs[agg_name] = merged_fields
+
+        include_count_all = _count is True or bool(requested_count_map and requested_count_map.get("_all"))
+        requested_count_fields = build_truthy_field_map(
+            requested_count_map,
+            valid_fields,
+            {"_all"},
+        )
+        computed_count_fields = {
+            **requested_count_fields,
+            **build_truthy_field_map(having_aggregate_inputs.get("_count"), valid_fields),
+            **build_truthy_field_map(order_by_aggregate_inputs.get("_count"), valid_fields),
+        }
+        should_compute_count = include_count_all or bool(computed_count_fields)
+
+        order_by_clauses = [
+            clause for clause in ensure_list(order_by)
+            if isinstance(clause, Mapping)
+        ]
+        can_use_sql_group_by = (
+            not having
+            and not self._where_requires_python_evaluation(where)
+            and len(set(by)) == len(by)
+            and not any(field in self.JSON_FIELDS or field in self.SCALAR_LIST_FIELDS for field in by)
+            and (take is None or take >= 0)
+            and (skip is None or skip >= 0)
+            and not (skip and take is None)
+        )
+
+        sql_order_parts: List[str] = []
+        if can_use_sql_group_by:
+            for order_clause in order_by_clauses:
+                for order_field, direction in dict(order_clause).items():
+                    if order_field not in by or isinstance(direction, Mapping):
+                        can_use_sql_group_by = False
+                        break
+
+                    direction_sql = "DESC" if str(direction).lower() == "desc" else "ASC"
+                    sql_order_parts.append(
+                        f"{SQLBuilder.quote_identifier(self._db_column(order_field))} {direction_sql}"
+                    )
+                if not can_use_sql_group_by:
+                    break
+
+        if can_use_sql_group_by:
+            params: List[Any] = []
+            where_sql = ""
+            if where:
+                where_sql, params, _ = self._build_sql_where(dict(where))
+
+            conn = await self._get_conn()
+            return await execute_sql_group_by(
+                conn,
+                self.TABLE,
+                self.FIELDS,
+                by,
+                where_sql,
+                params,
+                sql_order_parts,
+                take,
+                skip,
+                include_count_all,
+                requested_count_map,
+                computed_count_fields,
+                computed_aggregate_inputs,
+                requested_aggregate_maps,
+                _count,
+                self.FIELD_TO_COLUMN,
+            )
+
+        records = await self.find_many(where=where)
+        return build_python_group_by_rows(
+            records,
+            self.FIELDS,
+            by,
+            having,
+            valid_fields,
+            order_by_clauses,
+            take,
+            skip,
+            include_count_all,
+            requested_count_map,
+            computed_count_fields,
+            computed_aggregate_inputs,
+            requested_aggregate_maps,
+            _count,
+        )
+
+
+
+class UserRoleDelegate(BaseDelegate):
+    """Async Direct SQL delegate for UserRole"""
+
+    TABLE = "UserRole"
+    PK_FIELDS = USERROLE_PK_FIELDS
+    PK_SELECTOR = USERROLE_PK_SELECTOR
+    UNIQUE_SELECTORS = USERROLE_UNIQUE_SELECTORS
+    FIELDS = USERROLE_FIELDS
+    FIELD_TO_COLUMN = USERROLE_FIELD_TO_COLUMN
+    COLUMN_TO_FIELD = USERROLE_COLUMN_TO_FIELD
+    NUMERIC_FIELDS = USERROLE_NUMERIC_FIELDS
+    DATETIME_FIELDS = USERROLE_DATETIME_FIELDS
+    UPDATED_AT_FIELDS = USERROLE_UPDATED_AT_FIELDS
+    JSON_FIELDS = USERROLE_JSON_FIELDS
+    SCALAR_LIST_FIELDS = USERROLE_SCALAR_LIST_FIELDS
+    SCALAR_LIST_FIELD_TYPES = USERROLE_SCALAR_LIST_FIELD_TYPES
+    ENUM_FIELDS = USERROLE_ENUM_FIELDS
+    SCALAR_LIST_ENUM_FIELDS = USERROLE_SCALAR_LIST_ENUM_FIELDS
+    RELATION_CONFIGS: Dict[str, Dict[str, Any]] = {
+        "user": {"model": "User", "kind": "inverse_many", "local_fields": ["id"], "remote_fields": ["roleId"], "can_disconnect": True}
+    }
+
+    def _row_to_model(self, row: Any, columns: List[str]) -> UserRole:
+        """Convert row to model instance"""
+        if isinstance(row, dict):
+            data = {
+                self._logical_field(str(key)): value
+                for key, value in row.items()
+            }
+        else:
+            data = dict(zip(columns, row))
+        # Convert datetime strings back to datetime objects
+
+
+
+
+        # Convert enum string values back to enum instances
+        for enum_field, enum_class in self.ENUM_FIELDS.items():
+            if enum_field in data and data[enum_field] is not None:
+                try:
+                    data[enum_field] = enum_class(data[enum_field])
+                except (ValueError, KeyError):
+                    pass  # Keep original value if conversion fails
+        return UserRole(**{k: v for k, v in data.items() if k in self.FIELDS})
+
+    def _relation_filter_requires_python_evaluation(
+        self,
+        relation_name: str,
+        condition: Any,
+    ) -> bool:
+        config = self.RELATION_CONFIGS.get(relation_name)
+        if config is None or not isinstance(condition, Mapping):
+            return True
+
+        related_delegate = self._get_delegate(cast(str, config["model"]))
+        if related_delegate is None:
+            return True
+
+        # SQL generation currently uses table names as references. Self-relations
+        # need aliases to avoid ambiguous identifiers, so keep those on the safe
+        # Python path until alias-aware SQL generation lands.
+        if related_delegate.TABLE == self.TABLE:
+            return True
+
+        kind = cast(str, config["kind"])
+        condition_dict = dict(condition)
+
+        if kind in ("m2m", "inverse_many"):
+            for operator, nested_where in condition_dict.items():
+                if operator not in ("some", "none", "every"):
+                    return True
+                if not isinstance(nested_where, Mapping):
+                    return True
+                if related_delegate._where_requires_python_evaluation(
+                    cast(Mapping[str, Any], nested_where)
+                ):
+                    return True
+            return False
+
+        relation_operators = [
+            operator for operator in condition_dict.keys() if operator in ("is", "isNot")
+        ]
+        if relation_operators:
+            for operator, nested_where in condition_dict.items():
+                if operator not in ("is", "isNot"):
+                    return True
+                if nested_where is None:
+                    continue
+                if not isinstance(nested_where, Mapping):
+                    return True
+                if related_delegate._where_requires_python_evaluation(
+                    cast(Mapping[str, Any], nested_where)
+                ):
+                    return True
+            return False
+
+        return related_delegate._where_requires_python_evaluation(condition_dict)
+
+    def _build_relation_exists_sql(
+        self,
+        relation_name: str,
+        config: Mapping[str, Any],
+        nested_where: Optional[Mapping[str, Any]],
+        param_offset: int,
+        negate_nested: bool = False,
+    ) -> Tuple[str, List[Any], int]:
+        related_delegate = self._get_delegate(cast(str, config["model"]))
+        if related_delegate is None:
+            raise ValueError(f"Unknown relation delegate for '{relation_name}'")
+
+        kind = cast(str, config["kind"])
+        params: List[Any] = []
+        idx = param_offset
+
+        if kind == "m2m":
+            join_table = cast(str, config["join_table"])
+            local_column = cast(str, config["local_column"])
+            remote_column = cast(str, config["remote_column"])
+            local_pk_field = cast(str, config["local_pk_field"])
+            remote_pk_field = cast(str, config["remote_pk_field"])
+            conditions = [
+                f"{SQLBuilder.column_ref(local_column, join_table)} = {SQLBuilder.column_ref(self._db_column(local_pk_field), self.TABLE)}"
+            ]
+
+            join_sql = (
+                f"{SQLBuilder.quote_identifier(join_table)} "
+                f"INNER JOIN {SQLBuilder.quote_identifier(related_delegate.TABLE)} "
+                f"ON {SQLBuilder.column_ref(related_delegate._db_column(remote_pk_field), related_delegate.TABLE)} = "
+                f"{SQLBuilder.column_ref(remote_column, join_table)}"
+            )
+        else:
+            local_fields = cast(List[str], config["local_fields"])
+            remote_fields = cast(List[str], config["remote_fields"])
+            conditions = [
+                f"{SQLBuilder.column_ref(related_delegate._db_column(remote_field), related_delegate.TABLE)} = {SQLBuilder.column_ref(self._db_column(local_field), self.TABLE)}"
+                for local_field, remote_field in zip(local_fields, remote_fields)
+            ]
+            join_sql = SQLBuilder.quote_identifier(related_delegate.TABLE)
+
+        if nested_where:
+            nested_sql, nested_params, idx = related_delegate._build_sql_where(
+                cast(Mapping[str, Any], nested_where),
+                related_delegate.TABLE,
+                idx,
+            )
+            if nested_sql:
+                conditions.append(f"NOT ({nested_sql})" if negate_nested else f"({nested_sql})")
+                params.extend(nested_params)
+
+        where_sql = " AND ".join(conditions) if conditions else "1 = 1"
+        return f"EXISTS (SELECT 1 FROM {join_sql} WHERE {where_sql})", params, idx
+
+    def _build_relation_filter_sql(
+        self,
+        relation_name: str,
+        condition: Any,
+        param_offset: int,
+    ) -> Tuple[str, List[Any], int]:
+        config = self.RELATION_CONFIGS.get(relation_name)
+        if config is None or not isinstance(condition, Mapping):
+            raise ValueError(f"Unsupported relation filter for '{relation_name}'")
+
+        kind = cast(str, config["kind"])
+        condition_dict = dict(condition)
+        clauses: List[str] = []
+        params: List[Any] = []
+        idx = param_offset
+
+        if kind in ("m2m", "inverse_many"):
+            for operator, nested_where in condition_dict.items():
+                nested_mapping = cast(Mapping[str, Any], nested_where)
+                if operator == "every" and not nested_mapping:
+                    continue
+                exists_sql, exists_params, idx = self._build_relation_exists_sql(
+                    relation_name,
+                    config,
+                    nested_mapping,
+                    idx,
+                    negate_nested=operator == "every",
+                )
+                if operator == "some":
+                    clauses.append(exists_sql)
+                elif operator in ("none", "every"):
+                    clauses.append(f"NOT ({exists_sql})")
+                else:
+                    raise ValueError(
+                        f"Unsupported list relation filter operation '{operator}' for relation '{relation_name}'"
+                    )
+                params.extend(exists_params)
+            return " AND ".join(clauses), params, idx
+
+        relation_operators = [
+            operator for operator in condition_dict.keys() if operator in ("is", "isNot")
+        ]
+        if relation_operators:
+            for operator, nested_where in condition_dict.items():
+                if operator not in ("is", "isNot"):
+                    raise ValueError(
+                        f"Unsupported to-one relation filter operation '{operator}' for relation '{relation_name}'"
+                    )
+                nested_mapping = None if nested_where is None else cast(Mapping[str, Any], nested_where)
+                exists_sql, exists_params, idx = self._build_relation_exists_sql(
+                    relation_name,
+                    config,
+                    nested_mapping,
+                    idx,
+                )
+                clauses.append(exists_sql if operator == "is" else f"NOT ({exists_sql})")
+                params.extend(exists_params)
+            return " AND ".join(clauses), params, idx
+
+        exists_sql, exists_params, idx = self._build_relation_exists_sql(
+            relation_name,
+            config,
+            condition_dict,
+            idx,
+        )
+        return exists_sql, exists_params, idx
+
+    def _build_sql_where(
+        self,
+        where: Optional[Mapping[str, Any]],
+        table: str = "",
+        param_offset: int = 0,
+    ) -> Tuple[str, List[Any], int]:
+        if not where:
+            return "", [], param_offset
+
+        conditions: List[str] = []
+        params: List[Any] = []
+        idx = param_offset
+
+        for key, value in dict(where).items():
+            if key == "AND":
+                sub_conditions: List[str] = []
+                for clause in ensure_list(value):
+                    if not isinstance(clause, Mapping):
+                        continue
+                    sql, nested_params, idx = self._build_sql_where(
+                        cast(Mapping[str, Any], clause),
+                        table,
+                        idx,
+                    )
+                    if sql:
+                        sub_conditions.append(f"({sql})")
+                        params.extend(nested_params)
+                if sub_conditions:
+                    conditions.append(f"({' AND '.join(sub_conditions)})")
+                continue
+
+            if key == "OR":
+                sub_conditions = []
+                for clause in ensure_list(value):
+                    if not isinstance(clause, Mapping):
+                        continue
+                    sql, nested_params, idx = self._build_sql_where(
+                        cast(Mapping[str, Any], clause),
+                        table,
+                        idx,
+                    )
+                    if sql:
+                        sub_conditions.append(f"({sql})")
+                        params.extend(nested_params)
+                if sub_conditions:
+                    conditions.append(f"({' OR '.join(sub_conditions)})")
+                continue
+
+            if key == "NOT":
+                for clause in ensure_list(value):
+                    if not isinstance(clause, Mapping):
+                        continue
+                    sql, nested_params, idx = self._build_sql_where(
+                        cast(Mapping[str, Any], clause),
+                        table,
+                        idx,
+                    )
+                    if sql:
+                        conditions.append(f"NOT ({sql})")
+                        params.extend(nested_params)
+                continue
+
+            if key in self.RELATION_CONFIGS:
+                sql, relation_params, idx = self._build_relation_filter_sql(key, value, idx)
+                if sql:
+                    conditions.append(sql)
+                    params.extend(relation_params)
+                continue
+
+            if key in self.JSON_FIELDS:
+                sql, json_params, idx = SQLBuilder.build_json_filter(
+                    key,
+                    cast(Mapping[str, Any], value),
+                    table,
+                    idx,
+                    self.FIELD_TO_COLUMN,
+                )
+                if sql:
+                    conditions.append(sql)
+                    params.extend(json_params)
+                continue
+
+            sql, scalar_params, idx = SQLBuilder.build_where(
+                {key: value},
+                table,
+                idx,
+                self.FIELD_TO_COLUMN,
+                self.SCALAR_LIST_FIELDS,
+            )
+            if sql:
+                conditions.append(sql)
+                params.extend(scalar_params)
+
+        return " AND ".join(conditions), params, idx
+
+    def _merge_relation_filter_load_options(
+        self,
+        target: Dict[str, Any],
+        source: Optional[Mapping[str, Any]],
+    ) -> None:
+        if not source:
+            return
+
+        for relation_name, incoming in dict(source).items():
+            existing = target.get(relation_name)
+            if isinstance(existing, Mapping) and isinstance(incoming, Mapping):
+                merged = dict(existing)
+                merged_include = dict(cast(Mapping[str, Any], merged.get("include") or {}))
+                incoming_include = cast(Mapping[str, Any], incoming.get("include") or {})
+                self._merge_relation_filter_load_options(merged_include, incoming_include)
+                if merged_include:
+                    merged["include"] = merged_include
+                target[relation_name] = merged
+                continue
+
+            if existing is True and isinstance(incoming, Mapping):
+                target[relation_name] = dict(incoming)
+                continue
+
+            if isinstance(existing, Mapping) and incoming is True:
+                continue
+
+            target[relation_name] = dict(incoming) if isinstance(incoming, Mapping) else True
+
+    def _build_relation_filter_load_options(
+        self,
+        where: Optional[Mapping[str, Any]],
+    ) -> Optional[Dict[str, Any]]:
+        if not where:
+            return None
+
+        load_options: Dict[str, Any] = {}
+
+        for key, value in dict(where).items():
+            if key in ("AND", "OR", "NOT"):
+                for clause in ensure_list(value):
+                    if isinstance(clause, Mapping):
+                        nested_options = self._build_relation_filter_load_options(
+                            cast(Mapping[str, Any], clause)
+                        )
+                        self._merge_relation_filter_load_options(load_options, nested_options)
+                continue
+
+            config = self.RELATION_CONFIGS.get(key)
+            if config is None:
+                continue
+
+            option: Any = True
+            if isinstance(value, Mapping):
+                related_delegate = self._get_delegate(cast(str, config["model"]))
+                nested_loads: Dict[str, Any] = {}
+                if cast(str, config["kind"]) in ("m2m", "inverse_many"):
+                    for operator in ("some", "none", "every"):
+                        nested_where = value.get(operator)
+                        if isinstance(nested_where, Mapping):
+                            self._merge_relation_filter_load_options(
+                                nested_loads,
+                                related_delegate._build_relation_filter_load_options(
+                                    cast(Mapping[str, Any], nested_where)
+                                ),
+                            )
+                else:
+                    has_relation_operator = False
+                    for operator in ("is", "isNot"):
+                        if operator not in value:
+                            continue
+                        has_relation_operator = True
+                        nested_where = value.get(operator)
+                        if isinstance(nested_where, Mapping):
+                            self._merge_relation_filter_load_options(
+                                nested_loads,
+                                related_delegate._build_relation_filter_load_options(
+                                    cast(Mapping[str, Any], nested_where)
+                                ),
+                            )
+                    if not has_relation_operator:
+                        self._merge_relation_filter_load_options(
+                            nested_loads,
+                            related_delegate._build_relation_filter_load_options(
+                                cast(Mapping[str, Any], value)
+                            ),
+                        )
+
+                if nested_loads:
+                    option = {"include": nested_loads}
+
+            self._merge_relation_filter_load_options(load_options, {key: option})
+
+        return load_options or None
+
+    def _where_requires_python_evaluation(
+        self,
+        where: Optional[Mapping[str, Any]],
+    ) -> bool:
+        if not where:
+            return False
+
+        for key, value in dict(where).items():
+            if key in ("AND", "OR", "NOT"):
+                if any(
+                    self._where_requires_python_evaluation(cast(Mapping[str, Any], clause))
+                    for clause in ensure_list(value)
+                    if isinstance(clause, Mapping)
+                ):
+                    return True
+                continue
+
+            if key in self.RELATION_CONFIGS:
+                if self._relation_filter_requires_python_evaluation(key, value):
+                    return True
+                continue
+
+            if key in self.JSON_FIELDS:
+                if not SQLBuilder.can_build_json_filter(value):
+                    return True
+                continue
+
+            if key in self.SCALAR_LIST_FIELDS and SQLBuilder.PROVIDER != "postgresql":
+                return True
+
+        return False
+
+    def _matches_relation_filter(
+        self,
+        relation_name: str,
+        relation_value: Any,
+        condition: Any,
+    ) -> bool:
+        config = self.RELATION_CONFIGS.get(relation_name)
+        if config is None:
+            raise ValueError(f"Unknown relation filter: {relation_name}")
+
+        if not isinstance(condition, Mapping):
+            raise ValueError(f"Relation filter '{relation_name}' expects a mapping value")
+
+        delegate = self._get_delegate(cast(str, config["model"]))
+        relation_kind = cast(str, config["kind"])
+
+        if relation_kind in ("m2m", "inverse_many"):
+            items = relation_value if isinstance(relation_value, list) else []
+            for operation, expected in dict(condition).items():
+                if operation not in ("some", "none", "every"):
+                    raise ValueError(
+                        f"Unsupported list relation filter operation '{operation}' for relation '{relation_name}'"
+                    )
+                if not isinstance(expected, Mapping):
+                    raise ValueError(
+                        f"List relation filter '{relation_name}.{operation}' expects a mapping value"
+                    )
+
+                nested_where = cast(Mapping[str, Any], expected)
+                if operation == "some":
+                    if not any(delegate._record_matches_where(item, nested_where) for item in items):
+                        return False
+                    continue
+                if operation == "none":
+                    if any(delegate._record_matches_where(item, nested_where) for item in items):
+                        return False
+                    continue
+                if not all(delegate._record_matches_where(item, nested_where) for item in items):
+                    return False
+
+            return True
+
+        if not condition:
+            return relation_value is not None
+
+        relation_operators = [
+            operation for operation in dict(condition).keys() if operation in ("is", "isNot")
+        ]
+        if relation_operators:
+            for operation, expected in dict(condition).items():
+                if operation not in ("is", "isNot"):
+                    raise ValueError(
+                        f"Unsupported to-one relation filter operation '{operation}' for relation '{relation_name}'"
+                    )
+
+                if operation == "is":
+                    if expected is None:
+                        if relation_value is not None:
+                            return False
+                        continue
+                    if not isinstance(expected, Mapping):
+                        raise ValueError(
+                            f"To-one relation filter '{relation_name}.is' expects a mapping value or None"
+                        )
+                    if relation_value is None or not delegate._record_matches_where(
+                        relation_value,
+                        cast(Mapping[str, Any], expected),
+                    ):
+                        return False
+                    continue
+
+                if expected is None:
+                    if relation_value is None:
+                        return False
+                    continue
+                if not isinstance(expected, Mapping):
+                    raise ValueError(
+                        f"To-one relation filter '{relation_name}.isNot' expects a mapping value or None"
+                    )
+                if relation_value is not None and delegate._record_matches_where(
+                    relation_value,
+                    cast(Mapping[str, Any], expected),
+                ):
+                    return False
+
+            return True
+
+        if relation_value is None:
+            return False
+
+        return delegate._record_matches_where(
+            relation_value,
+            cast(Mapping[str, Any], condition),
+        )
+
+    def _record_matches_where(self, record: Any, where: Optional[Mapping[str, Any]]) -> bool:
+        if not where:
+            return True
+
+        for key, value in dict(where).items():
+            if key == "AND":
+                clauses = [clause for clause in ensure_list(value) if isinstance(clause, Mapping)]
+                if not all(
+                    self._record_matches_where(record, cast(Mapping[str, Any], clause))
+                    for clause in clauses
+                ):
+                    return False
+                continue
+
+            if key == "OR":
+                clauses = [clause for clause in ensure_list(value) if isinstance(clause, Mapping)]
+                if not clauses or not any(
+                    self._record_matches_where(record, cast(Mapping[str, Any], clause))
+                    for clause in clauses
+                ):
+                    return False
+                continue
+
+            if key == "NOT":
+                clauses = [clause for clause in ensure_list(value) if isinstance(clause, Mapping)]
+                if any(
+                    self._record_matches_where(record, cast(Mapping[str, Any], clause))
+                    for clause in clauses
+                ):
+                    return False
+                continue
+
+            if key in self.RELATION_CONFIGS:
+                if not self._matches_relation_filter(key, getattr(record, key, None), value):
+                    return False
+                continue
+
+            if key in self.JSON_FIELDS:
+                if not matches_json_filter_value(get_source_value(record, key), value):
+                    return False
+                continue
+
+            if key in self.SCALAR_LIST_FIELDS:
+                if not matches_scalar_list_filter_value(get_source_value(record, key), value):
+                    return False
+                continue
+
+            if not matches_scalar_filter_value(get_source_value(record, key), value):
+                return False
+
+        return True
+
+    def _record_matches_unique(self, record: Any, where: Mapping[str, Any]) -> bool:
+        return all(get_source_value(record, field) == value for field, value in dict(where).items())
+
+    def _apply_distinct_results(
+        self,
+        records: List[UserRole],
+        distinct: Optional[List[str]] = None,
+    ) -> List[UserRole]:
+        if not distinct:
+            return records
+
+        seen: Set[Tuple[Any, ...]] = set()
+        unique_records: List[UserRole] = []
+        for record in records:
+            key = tuple(get_source_value(record, field) for field in distinct)
+            if key in seen:
+                continue
+            seen.add(key)
+            unique_records.append(record)
+
+        return unique_records
+
+    def _apply_window_results(
+        self,
+        records: List[UserRole],
+        cursor: Optional[UserRoleWhereUniqueInput] = None,
+        skip: Optional[int] = None,
+        take: Optional[int] = None,
+    ) -> List[UserRole]:
+        offset = skip or 0
+
+        if take == 0:
+            return []
+
+        if cursor:
+            normalized_cursor = self._normalize_unique_where(cast(Mapping[str, Any], cursor))
+            cursor_index: Optional[int] = None
+            for index, record in enumerate(records):
+                if self._record_matches_unique(record, normalized_cursor):
+                    cursor_index = index
+                    break
+
+            if cursor_index is None:
+                return []
+
+            if take is not None and take < 0:
+                end_index = cursor_index + 1 - offset
+                if end_index <= 0:
+                    return []
+                start_index = max(0, end_index + take)
+                return records[start_index:end_index]
+
+            start_index = max(0, cursor_index + offset)
+            if take is None:
+                return records[start_index:]
+            return records[start_index:start_index + take]
+
+        if take is not None and take < 0:
+            end_index = len(records) - offset
+            if end_index <= 0:
+                return []
+            start_index = max(0, end_index + take)
+            return records[start_index:end_index]
+
+        if offset:
+            records = records[offset:]
+
+        if take is not None:
+            return records[:take]
+
+        return records
+
+    async def _load_relation_counts(
+        self,
+        records: List[UserRole],
+        count_requests: Dict[str, Any],
+    ) -> None:
+        if not records or not count_requests:
+            return
+
+        conn = await self._get_conn()
+        handled_count_requests: Set[str] = set()
+
+        if count_requests.get("user") is True:
+            local_ids = [
+                getattr(record, "id")
+                for record in records
+                if getattr(record, "id", None) is not None
+            ]
+            unique_local_ids = list(dict.fromkeys(local_ids))
+            delegate = self._get_delegate("User")
+            grouped_counts = await fetch_grouped_count_rows(
+                conn,
+                delegate.TABLE,
+                delegate._db_column("roleId"),
+                unique_local_ids,
+            )
+            for record in records:
+                local_id = getattr(record, "id", None)
+                count_data = dict(record._count or {})
+                count_data["user"] = grouped_counts.get(local_id, 0) if local_id is not None else 0
+                record._count = count_data
+            handled_count_requests.add("user")
+
+        remaining_count_requests = {
+            relation_name: option
+            for relation_name, option in count_requests.items()
+            if relation_name not in handled_count_requests
+        }
+        if not remaining_count_requests:
+            return
+
+        count_include = {relation_name: option for relation_name, option in remaining_count_requests.items()}
+        await self._load_relations(records, cast(Any, count_include))
+
+        for record in records:
+            count_data = dict(record._count or {})
+            for relation_name in remaining_count_requests.keys():
+                relation_value = getattr(record, relation_name, None)
+                if isinstance(relation_value, list):
+                    count_data[relation_name] = len(relation_value)
+                else:
+                    count_data[relation_name] = 1 if relation_value is not None else 0
+            record._count = count_data
+
+    def _generate_defaults(self, data_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate default values for ID and timestamp fields"""
+        return data_dict
+
+    async def _load_relations(
+        self,
+        records: List[UserRole],
+        include: Optional[UserRoleInclude] = None,
+    ) -> None:
+        """Load relations for records based on include dict"""
+        if not include or not records:
+            return
+
+        conn = await self._get_conn()
+
+        # Load user relation
+        inc_user = include.get("user")
+        if inc_user:
+            delegate = self._get_delegate("User")
+            nested_include = None
+            nested_select = None
+            nested_omit = None
+            nested_where = None
+            nested_order = None
+            nested_take = None
+            nested_skip = None
+            nested_distinct = None
+            nested_cursor = None
+
+            if isinstance(inc_user, dict):
+                nested_include = inc_user.get("include")
+                nested_select = inc_user.get("select")
+                nested_omit = inc_user.get("omit")
+                nested_where = inc_user.get("where")
+                nested_order = inc_user.get("orderBy")
+                nested_take = inc_user.get("take")
+                nested_skip = inc_user.get("skip")
+                nested_distinct = inc_user.get("distinct")
+                nested_cursor = inc_user.get("cursor")
+
+            local_keys = [
+                key
+                for key in (
+                    self._identity_for_fields(record, ["id"])
+                    for record in records
+                )
+                if key is not None
+            ]
+            unique_local_keys = list(dict.fromkeys(local_keys))
+
+            if unique_local_keys:
+                if len(unique_local_keys[0]) == 1:
+                    base_where: Dict[str, Any] = {
+                        "roleId": {"in_": [key_values[0] for key_values in unique_local_keys]}
+                    }
+                else:
+                    base_conditions: List[Dict[str, Any]] = []
+                    for key_values in unique_local_keys:
+                        condition = {
+                            "roleId": key_values[0],
+                        }
+                        base_conditions.append(condition)
+
+                    base_where = {"OR": base_conditions}
+                if nested_where:
+                    base_where = {"AND": [base_where, nested_where]}
+
+                related = await delegate.find_many(
+                    where=base_where,
+                    select=nested_select,
+                    omit=nested_omit,
+                    include=nested_include,
+                    order_by=nested_order,
+                )
+
+                by_key: Dict[Tuple[Any, ...], Any] = {}
+                for rel_rec in related:
+                    rel_key = delegate._identity_for_fields(
+                        rel_rec,
+                        ["roleId"],
+                    )
+                    if rel_key is None:
+                        continue
+                    by_key.setdefault(rel_key, []).append(rel_rec)
+
+                for rec in records:
+                    local_key = self._identity_for_fields(
+                        rec,
+                        ["id"],
+                    )
+                    items = by_key.get(local_key, []) if local_key is not None else []
+                    if nested_distinct:
+                        items = delegate._apply_distinct_results(items, nested_distinct)
+                    if nested_cursor or nested_skip or nested_take is not None:
+                        items = delegate._apply_window_results(
+                            items,
+                            nested_cursor,
+                            nested_skip,
+                            nested_take,
+                        )
+                    rec.user = items
+
+    async def find_many(
+        self,
+        where: Optional[UserRoleWhereInput] = None,
+        select: Optional[UserRoleSelect] = None,
+        omit: Optional[UserRoleOmit] = None,
+        include: Optional[UserRoleInclude] = None,
+        order_by: Optional[Union[List[UserRoleOrderBy], UserRoleOrderBy]] = None,
+        skip: Optional[int] = None,
+        take: Optional[int] = None,
+        distinct: Optional[List[str]] = None,
+        cursor: Optional[UserRoleWhereUniqueInput] = None,
+    ) -> List[UserRole]:
+        """Find multiple records with include support"""
+        conn = await self._get_conn()
+
+        select_dict: Optional[SelectDict] = cast(SelectDict, select) if select else None
+        omit_dict: Optional[SelectDict] = cast(SelectDict, omit) if omit else None
+        relation_load_options = self._build_relation_load_options(select, include)
+        where_requires_python_evaluation = self._where_requires_python_evaluation(where)
+        relation_filter_load_options = (
+            self._build_relation_filter_load_options(where)
+            if where_requires_python_evaluation
+            else None
+        )
+        count_requests = self._extract_count_requests(select, include)
+        needs_full_row = bool(
+            where_requires_python_evaluation
+            or relation_load_options
+            or relation_filter_load_options
+            or count_requests
+        )
+        query_select_dict: Optional[SelectDict] = None if needs_full_row else select_dict
+        query_omit_dict: Optional[SelectDict] = None if needs_full_row or select_dict else omit_dict
+
+        cols_sql, selected_fields = SQLBuilder.build_select(self.TABLE, self.FIELDS, query_select_dict, query_omit_dict, field_map=self.FIELD_TO_COLUMN)
+
+        sql = f'SELECT {cols_sql} FROM {SQLBuilder.quote_identifier(self.TABLE)}'
+
+        params: List[Any] = []
+        param_idx = 0
+
+        if where and not where_requires_python_evaluation:
+            where_sql, where_params, param_idx = self._build_sql_where(dict(where), "", param_idx)
+            if where_sql:
+                sql += f" WHERE {where_sql}"
+                params.extend(where_params)
+
+        if order_by:
+            sql += " " + SQLBuilder.build_order_by(order_by, field_map=self.FIELD_TO_COLUMN)
+
+        apply_sql_window = (
+            not where_requires_python_evaluation
+            and cursor is None
+            and not distinct
+            and (take is None or take >= 0)
+        )
+        if apply_sql_window and take is not None:
+            sql += f" LIMIT {take}"
+        if apply_sql_window and skip:
+            sql += f" OFFSET {skip}"
+
+        rows = await fetch_dict_rows(conn, sql, params, selected_fields)
+        results = [self._row_to_model(row, selected_fields) for row in rows]
+
+        if where_requires_python_evaluation:
+            if relation_filter_load_options:
+                await self._load_relations(results, cast(Any, relation_filter_load_options))
+            results = [
+                record
+                for record in results
+                if self._record_matches_where(record, cast(Mapping[str, Any], where))
+            ]
+
+        if distinct:
+            results = self._apply_distinct_results(results, distinct)
+
+        if not apply_sql_window:
+            results = self._apply_window_results(results, cursor, skip, take)
+
+        # Apply query options and load relations
+        for rec in results:
+            self._apply_query_options(rec, select, omit, include)
+
+        if relation_load_options:
+            await self._load_relations(results, cast(Any, relation_load_options))
+
+        if count_requests:
+            await self._load_relation_counts(results, count_requests)
+
+        return results
+
+    async def find_unique(
+        self,
+        where: UserRoleWhereUniqueInput,
+        select: Optional[UserRoleSelect] = None,
+        omit: Optional[UserRoleOmit] = None,
+        include: Optional[UserRoleInclude] = None,
+    ) -> Optional[UserRole]:
+        """Find unique record with include support"""
+        conn = await self._get_conn()
+
+        select_dict: Optional[SelectDict] = cast(SelectDict, select) if select else None
+        omit_dict: Optional[SelectDict] = cast(SelectDict, omit) if omit else None
+        relation_load_options = self._build_relation_load_options(select, include)
+        count_requests = self._extract_count_requests(select, include)
+        needs_full_row = bool(relation_load_options or count_requests)
+        query_select_dict: Optional[SelectDict] = None if needs_full_row else select_dict
+        query_omit_dict: Optional[SelectDict] = None if needs_full_row or select_dict else omit_dict
+
+        cols_sql, selected_fields = SQLBuilder.build_select(self.TABLE, self.FIELDS, query_select_dict, query_omit_dict, field_map=self.FIELD_TO_COLUMN)
+        sql = f'SELECT {cols_sql} FROM {SQLBuilder.quote_identifier(self.TABLE)}'
+
+        normalized_where = self._normalize_unique_where(where)
+        where_sql, params, _ = SQLBuilder.build_where(
+            normalized_where,
+            field_map=self.FIELD_TO_COLUMN,
+            scalar_list_fields=self.SCALAR_LIST_FIELDS,
+        )
+        if where_sql:
+            sql += f" WHERE {where_sql}"
+        sql += " LIMIT 1"
+
+        row = await fetch_dict_row(conn, sql, params, selected_fields)
+        if not row:
+            return None
+
+        result = self._row_to_model(row, selected_fields)
+        self._apply_query_options(result, select, omit, include)
+
+        if relation_load_options:
+            await self._load_relations([result], cast(Any, relation_load_options))
+
+        if count_requests:
+            await self._load_relation_counts([result], count_requests)
+
+        return result
+
+    async def find_unique_or_throw(
+        self,
+        where: UserRoleWhereUniqueInput,
+        select: Optional[UserRoleSelect] = None,
+        omit: Optional[UserRoleOmit] = None,
+        include: Optional[UserRoleInclude] = None,
+    ) -> UserRole:
+        """Find unique or raise error"""
+        result = await self.find_unique(where, select, omit, include)
+        if result is None:
+            raise RecordNotFoundError(f"UserRole not found: {where}")
+        return result
+
+    async def find_first(
+        self,
+        where: Optional[UserRoleWhereInput] = None,
+        select: Optional[UserRoleSelect] = None,
+        omit: Optional[UserRoleOmit] = None,
+        include: Optional[UserRoleInclude] = None,
+        order_by: Optional[Union[List[UserRoleOrderBy], UserRoleOrderBy]] = None,
+        skip: Optional[int] = None,
+        distinct: Optional[List[str]] = None,
+        cursor: Optional[UserRoleWhereUniqueInput] = None,
+    ) -> Optional[UserRole]:
+        """Find first matching record"""
+        results = await self.find_many(
+            where=where, select=select, omit=omit, include=include,
+            order_by=order_by, skip=skip, take=1, distinct=distinct, cursor=cursor
+        )
+        return results[0] if results else None
+
+    async def find_first_or_throw(
+        self,
+        where: Optional[UserRoleWhereInput] = None,
+        select: Optional[UserRoleSelect] = None,
+        omit: Optional[UserRoleOmit] = None,
+        include: Optional[UserRoleInclude] = None,
+        order_by: Optional[Union[List[UserRoleOrderBy], UserRoleOrderBy]] = None,
+        skip: Optional[int] = None,
+    ) -> UserRole:
+        """Find first or raise error"""
+        result = await self.find_first(where, select, omit, include, order_by, skip)
+        if result is None:
+            raise RecordNotFoundError(f"UserRole not found")
+        return result
+
+    async def create(
+        self,
+        data: UserRoleCreateInput,
+        select: Optional[UserRoleSelect] = None,
+        omit: Optional[UserRoleOmit] = None,
+        include: Optional[UserRoleInclude] = None,
+    ) -> UserRole:
+        """Create a new record"""
+        conn = await self._get_conn()
+
+        data_dict = dict(data)
+        relation_writes = self._extract_relation_writes(data_dict)
+        if relation_writes and not self._is_in_transaction():
+            async with self._transaction_scope():
+                return await self.create(data, select=select, omit=omit, include=include)
+
+        await self._apply_pre_write_relations(data_dict, relation_writes)
+        data_dict = self._prepare_create_data(data_dict)
+
+        fields = [field for field in self.FIELDS if field in data_dict]
+        db_fields = [self._db_column(field) for field in fields]
+        values = [data_dict[k] for k in fields]
+        pk_field = self.PK_FIELDS[0] if len(self.PK_FIELDS) == 1 else None
+        pk_value = data_dict.get(pk_field) if pk_field else None
+        db_pk_field = self._db_column(pk_field) if pk_field else None
+
+        pk_value = await execute_insert_query(
+            conn,
+            self.TABLE,
+            db_fields,
+            values,
+            db_pk_field,
+            pk_value,
+            self._commit_if_needed,
+        )
+
+        if pk_field is not None and pk_value is not None:
+            data_dict[pk_field] = pk_value
+
+        created_where = cast(UserRoleWhereUniqueInput, self._build_primary_where(data_dict))
+        stored_record = await self.find_unique(created_where)
+        if stored_record is None:
+            raise RecordNotFoundError(f"Failed to create UserRole")
+
+        await self._apply_post_write_relations(stored_record, relation_writes)
+        if not (select or omit or include):
+            return stored_record
+
+        result = await self.find_unique(created_where, select=select, omit=omit, include=include)
+        if result is None:
+            raise RecordNotFoundError(f"Failed to load UserRole after create")
+        return result
+
+    async def create_many(
+        self,
+        data: List[UserRoleCreateInput],
+        skip_duplicates: bool = False,
+    ) -> Dict[str, int]:
+        """Create multiple records using batch insert"""
+        if not data:
+            return {"count": 0}
+
+        conn = await self._get_conn()
+
+        prepared_rows: List[Dict[str, Any]] = []
+        for item in data:
+            row = dict(item)
+            row = self._generate_defaults(row)
+            row = self._prepare_create_data(row)
+            prepared_rows.append(row)
+
+        if not prepared_rows:
+            return {"count": 0}
+
+        rows_by_shape: Dict[Tuple[str, ...], List[Dict[str, Any]]] = {}
+        for row in prepared_rows:
+            shape = tuple(field for field in self.FIELDS if field in row)
+            rows_by_shape.setdefault(shape, []).append(row)
+
+        count = 0
+        for field_shape, rows_for_shape in rows_by_shape.items():
+            fields = list(field_shape)
+            db_fields = [self._db_column(field) for field in fields]
+            values_list = [tuple(row.get(f) for f in fields) for row in rows_for_shape]
+            count += await execute_bulk_insert_count(
+                conn,
+                self.TABLE,
+                db_fields,
+                values_list,
+                skip_duplicates,
+            )
+
+        await self._commit_if_needed(conn)
+        return {"count": count}
+
+    async def create_many_and_return(
+        self,
+        data: Union[List[UserRoleCreateInput], UserRoleCreateInput],
+        select: Optional[UserRoleSelect] = None,
+        omit: Optional[UserRoleOmit] = None,
+    ) -> List[UserRole]:
+        """Create multiple records and return the stored rows"""
+        if SQLBuilder.PROVIDER == "mysql":
+            raise NotImplementedError(
+                "create_many_and_return is not natively supported by MySQL. "
+                "Use create_many for bulk inserts, or perform explicit create calls "
+                "inside a transaction when returned rows are required."
+            )
+
+        raw_items = ensure_list(data)
+        if not raw_items:
+            return []
+
+        for item in raw_items:
+            if not isinstance(item, Mapping):
+                raise ValueError("create_many_and_return expects mapping payloads")
+
+        has_relation_writes = any(
+            key in self.RELATION_CONFIGS
+            for item in raw_items
+            for key in cast(Mapping[str, Any], item).keys()
+        )
+
+        prepared_rows: List[Dict[str, Any]] = []
+        for item in raw_items:
+            row = self._generate_defaults(dict(cast(Mapping[str, Any], item)))
+            row = self._prepare_create_data(row)
+            prepared_rows.append(row)
+
+        field_shapes = [
+            tuple(key for key in row.keys() if key in self.FIELDS)
+            for row in prepared_rows
+        ]
+        can_use_bulk_return = (
+            not has_relation_writes
+            and bool(field_shapes)
+            and bool(field_shapes[0])
+            and all(shape == field_shapes[0] for shape in field_shapes)
+        )
+
+        if can_use_bulk_return:
+            conn = await self._get_conn()
+            fields = list(field_shapes[0])
+            db_fields = [self._db_column(field) for field in fields]
+            values_list = [tuple(row.get(field) for field in fields) for row in prepared_rows]
+            returning_sql, selected_fields = SQLBuilder.build_select(
+                self.TABLE,
+                self.FIELDS,
+                cast(Optional[SelectDict], select),
+                cast(Optional[SelectDict], omit),
+                field_map=self.FIELD_TO_COLUMN,
+            )
+            rows = await execute_bulk_insert_returning(
+                conn,
+                self.TABLE,
+                db_fields,
+                values_list,
+                returning_sql,
+                self._commit_if_needed,
+            )
+
+            return [
+                self._apply_query_options(
+                    self._row_to_model(row, selected_fields),
+                    select=select,
+                    omit=omit,
+                )
+                for row in rows
+            ]
+
+        created_records: List[UserRole] = []
+        for item in raw_items:
+            created_records.append(
+                await self.create(
+                    cast(UserRoleCreateInput, dict(item)),
+                    select=select,
+                    omit=omit,
+                )
+            )
+
+        return created_records
+
+    async def _find_relation_records_for_write(
+        self,
+        delegate: Any,
+        relation_name: str,
+        config: Dict[str, Any],
+        record: Any,
+        where: Optional[Mapping[str, Any]] = None,
+    ) -> List[Any]:
+        kind = cast(str, config["kind"])
+        if kind == "m2m":
+            parent = await self.find_unique(
+                cast(UserRoleWhereUniqueInput, self._build_primary_where(record)),
+                include=cast(Any, {relation_name: True}),
+            )
+            if parent is None:
+                return []
+
+            related_records = ensure_list(getattr(parent, relation_name, []))
+            remote_pk_field = cast(str, config["remote_pk_field"])
+            remote_ids = [
+                get_source_value(item, remote_pk_field)
+                for item in related_records
+                if get_source_value(item, remote_pk_field) is not None
+            ]
+            if not remote_ids:
+                return []
+
+            combined_where = self._combine_where_clauses(
+                {remote_pk_field: {"in_": remote_ids}},
+                where,
+            )
+            if combined_where is None:
+                return []
+            return await delegate.find_many(where=combined_where)
+
+        combined_where = self._combine_where_clauses(
+            self._build_inverse_parent_where(config, record),
+            where,
+        )
+        if combined_where is None:
+            return []
+        return await delegate.find_many(where=combined_where)
+
+    async def _apply_pre_write_relations(
+        self,
+        data_dict: Dict[str, Any],
+        relation_writes: Dict[str, Dict[str, Any]],
+        existing_record: Optional[Any] = None,
+    ) -> None:
+        for relation_name, write in relation_writes.items():
+            config = self.RELATION_CONFIGS.get(relation_name)
+            if not config or cast(str, config["kind"]) != "owned":
+                continue
+
+            delegate = self._get_delegate(cast(str, config["model"]))
+            local_fields = cast(List[str], config["local_fields"])
+            remote_fields = cast(List[str], config["remote_fields"])
+            current_related = (
+                await self._find_owned_related_record(delegate, config, existing_record)
+                if existing_record is not None
+                else None
+            )
+
+            if write.get("disconnect") is True or (
+                "set" in write and write["set"] in (None, [])
+            ):
+                if not cast(bool, config.get("can_disconnect", False)):
+                    raise ValueError(f"Relation '{relation_name}' does not support disconnect")
+                for field in local_fields:
+                    data_dict[field] = None
+                current_related = None
+
+            if write.get("delete"):
+                if not cast(bool, config.get("can_disconnect", False)):
+                    raise ValueError(f"Relation '{relation_name}' does not support delete")
+                if current_related is not None:
+                    await delegate.delete(delegate._build_primary_where(current_related))
+                for field in local_fields:
+                    data_dict[field] = None
+                current_related = None
+
+            related_records: List[Any] = []
+            if "set" in write and write["set"] not in (None, []):
+                related_records = await self._resolve_relation_records(
+                    delegate,
+                    write["set"],
+                    relation_name,
+                )
+            if "connect" in write:
+                related_records = await self._resolve_relation_records(
+                    delegate,
+                    write["connect"],
+                    relation_name,
+                )
+            if "create" in write:
+                related_records = await self._create_relation_records(
+                    delegate,
+                    write["create"],
+                    relation_name,
+                )
+            if "connectOrCreate" in write:
+                related_records = await self._connect_or_create_relation_records(
+                    delegate,
+                    write["connectOrCreate"],
+                    relation_name,
+                )
+
+            if "update" in write:
+                update_entries = self._normalize_nested_entries(write["update"], relation_name)
+                if len(update_entries) > 1:
+                    raise ValueError(f"Relation '{relation_name}' only accepts a single update payload")
+                if current_related is None:
+                    raise RecordNotFoundError(
+                        f"Related record for '{relation_name}' was not found for nested update"
+                    )
+
+                update_entry = update_entries[0]
+                raw_update_data = update_entry.get("data")
+                if isinstance(raw_update_data, Mapping):
+                    update_data = dict(raw_update_data)
+                else:
+                    update_data = dict(update_entry)
+                current_related = await delegate.update(
+                    delegate._build_primary_where(current_related),
+                    cast(Dict[str, Any], update_data),
+                )
+                if current_related is None:
+                    raise RecordNotFoundError(
+                        f"Failed to update related record for '{relation_name}'"
+                    )
+                related_records = [current_related]
+
+            if "upsert" in write:
+                upsert_entries = self._normalize_nested_entries(write["upsert"], relation_name)
+                if len(upsert_entries) > 1:
+                    raise ValueError(f"Relation '{relation_name}' only accepts a single upsert payload")
+
+                upsert_entry = upsert_entries[0]
+                raw_update_data = upsert_entry.get("update")
+                raw_create_data = upsert_entry.get("create")
+                if current_related is not None:
+                    update_data = dict(raw_update_data) if isinstance(raw_update_data, Mapping) else {}
+                    current_related = await delegate.update(
+                        delegate._build_primary_where(current_related),
+                        cast(Dict[str, Any], update_data),
+                    )
+                    if current_related is None:
+                        raise RecordNotFoundError(
+                            f"Failed to upsert related record for '{relation_name}'"
+                        )
+                    related_records = [current_related]
+                else:
+                    if not isinstance(raw_create_data, Mapping):
+                        raise ValueError(
+                            f"Relation '{relation_name}' requires a mapping create payload for upsert"
+                        )
+                    related_records = await self._create_relation_records(
+                        delegate,
+                        cast(Dict[str, Any], dict(raw_create_data)),
+                        relation_name,
+                    )
+
+            self._ensure_singular_relation_write(relation_name, related_records)
+            if related_records:
+                self._apply_relation_values(
+                    data_dict,
+                    local_fields,
+                    related_records[0],
+                    remote_fields,
+                )
+
+    async def _apply_post_write_relations(
+        self,
+        record: Any,
+        relation_writes: Dict[str, Dict[str, Any]],
+    ) -> None:
+        for relation_name, write in relation_writes.items():
+            config = self.RELATION_CONFIGS.get(relation_name)
+            if not config:
+                continue
+
+            relation_config = config
+            kind = cast(str, relation_config["kind"])
+            if kind == "owned":
+                continue
+
+            delegate = self._get_delegate(cast(str, relation_config["model"]))
+
+            if kind == "m2m":
+                local_pk_field = cast(str, config["local_pk_field"])
+                remote_pk_field = cast(str, config["remote_pk_field"])
+                join_table = cast(str, config["join_table"])
+                local_column = cast(str, config["local_column"])
+                remote_column = cast(str, config["remote_column"])
+                local_value = get_source_value(record, local_pk_field)
+
+                if local_value is None:
+                    continue
+
+                if "set" in write:
+                    await self._clear_m2m_pairs(join_table, local_column, local_value)
+                    if write["set"] not in (None, []):
+                        set_records = await self._resolve_relation_records(
+                            delegate,
+                            write["set"],
+                            relation_name,
+                        )
+                        set_pairs = [
+                            (local_value, get_source_value(related_record, remote_pk_field))
+                            for related_record in set_records
+                            if get_source_value(related_record, remote_pk_field) is not None
+                        ]
+                        await self._connect_m2m_pairs(
+                            join_table,
+                            local_column,
+                            remote_column,
+                            set_pairs,
+                        )
+
+                create_records = []
+                if "create" in write:
+                    create_records = await self._create_relation_records(
+                        delegate,
+                        write["create"],
+                        relation_name,
+                    )
+
+                connect_records = []
+                if "connect" in write:
+                    connect_records = await self._resolve_relation_records(
+                        delegate,
+                        write["connect"],
+                        relation_name,
+                    )
+
+                connect_or_create_records = []
+                if "connectOrCreate" in write:
+                    connect_or_create_records = await self._connect_or_create_relation_records(
+                        delegate,
+                        write["connectOrCreate"],
+                        relation_name,
+                    )
+
+                connect_pairs = [
+                    (local_value, get_source_value(related_record, remote_pk_field))
+                    for related_record in create_records + connect_records + connect_or_create_records
+                    if get_source_value(related_record, remote_pk_field) is not None
+                ]
+                await self._connect_m2m_pairs(
+                    join_table,
+                    local_column,
+                    remote_column,
+                    connect_pairs,
+                )
+
+                if "update" in write:
+                    update_entries = self._normalize_nested_entries(write["update"], relation_name)
+                    for update_entry in update_entries:
+                        where_clause = update_entry.get("where")
+                        data_clause = update_entry.get("data")
+                        if not isinstance(where_clause, Mapping) or not isinstance(data_clause, Mapping):
+                            raise ValueError(
+                                f"Relation '{relation_name}' update expects 'where' and 'data' mappings"
+                            )
+
+                        target_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                            cast(Mapping[str, Any], where_clause),
+                        )
+                        for target_record in target_records:
+                            await delegate.update(
+                                delegate._build_primary_where(target_record),
+                                cast(Dict[str, Any], dict(data_clause)),
+                            )
+
+                if "updateMany" in write:
+                    update_many_entries = self._normalize_nested_entries(write["updateMany"], relation_name)
+                    for update_entry in update_many_entries:
+                        data_clause = update_entry.get("data")
+                        where_clause = update_entry.get("where")
+                        if not isinstance(data_clause, Mapping):
+                            raise ValueError(
+                                f"Relation '{relation_name}' updateMany expects a 'data' mapping"
+                            )
+
+                        target_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                            cast(Optional[Mapping[str, Any]], where_clause)
+                            if isinstance(where_clause, Mapping)
+                            else None,
+                        )
+                        for target_record in target_records:
+                            await delegate.update(
+                                delegate._build_primary_where(target_record),
+                                cast(Dict[str, Any], dict(data_clause)),
+                            )
+
+                if "upsert" in write:
+                    upsert_entries = self._normalize_nested_entries(write["upsert"], relation_name)
+                    for upsert_entry in upsert_entries:
+                        where_clause = upsert_entry.get("where")
+                        update_clause = upsert_entry.get("update")
+                        create_clause = upsert_entry.get("create")
+                        if not isinstance(where_clause, Mapping):
+                            raise ValueError(
+                                f"Relation '{relation_name}' upsert expects a 'where' mapping"
+                            )
+
+                        target_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                            cast(Mapping[str, Any], where_clause),
+                        )
+                        if target_records:
+                            if not isinstance(update_clause, Mapping):
+                                raise ValueError(
+                                    f"Relation '{relation_name}' upsert expects an 'update' mapping"
+                                )
+                            await delegate.update(
+                                delegate._build_primary_where(target_records[0]),
+                                cast(Dict[str, Any], dict(update_clause)),
+                            )
+                        else:
+                            if not isinstance(create_clause, Mapping):
+                                raise ValueError(
+                                    f"Relation '{relation_name}' upsert expects a 'create' mapping"
+                                )
+                            created_records = await self._create_relation_records(
+                                delegate,
+                                cast(Dict[str, Any], dict(create_clause)),
+                                relation_name,
+                            )
+                            create_pairs = [
+                                (local_value, get_source_value(related_record, remote_pk_field))
+                                for related_record in created_records
+                                if get_source_value(related_record, remote_pk_field) is not None
+                            ]
+                            await self._connect_m2m_pairs(
+                                join_table,
+                                local_column,
+                                remote_column,
+                                create_pairs,
+                            )
+
+                if write.get("delete") is True:
+                    delete_records = await self._find_relation_records_for_write(
+                        delegate,
+                        relation_name,
+                        config,
+                        record,
+                    )
+                    self._ensure_singular_relation_write(relation_name, delete_records)
+                    for delete_record in delete_records:
+                        await delegate.delete(delegate._build_primary_where(delete_record))
+                elif "delete" in write:
+                    delete_entries = self._normalize_nested_entries(write["delete"], relation_name)
+                    for delete_entry in delete_entries:
+                        delete_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                            cast(Mapping[str, Any], delete_entry),
+                        )
+                        for delete_record in delete_records:
+                            await delegate.delete(delegate._build_primary_where(delete_record))
+
+                if "deleteMany" in write:
+                    delete_many_entries = self._normalize_nested_entries(write["deleteMany"], relation_name)
+                    for delete_entry in delete_many_entries:
+                        delete_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                            cast(Optional[Mapping[str, Any]], delete_entry),
+                        )
+                        for delete_record in delete_records:
+                            await delegate.delete(delegate._build_primary_where(delete_record))
+
+                if write.get("disconnect") is True:
+                    await self._clear_m2m_pairs(join_table, local_column, local_value)
+                elif "disconnect" in write:
+                    disconnect_records = await self._resolve_relation_records(
+                        delegate,
+                        write["disconnect"],
+                        relation_name,
+                    )
+                    disconnect_pairs = [
+                        (local_value, get_source_value(related_record, remote_pk_field))
+                        for related_record in disconnect_records
+                        if get_source_value(related_record, remote_pk_field) is not None
+                    ]
+                    await self._disconnect_m2m_pairs(
+                        join_table,
+                        local_column,
+                        remote_column,
+                        disconnect_pairs,
+                    )
+
+                continue
+
+            if "set" in write:
+                await self._clear_inverse_relations(delegate, relation_name, config, record)
+                if write["set"] not in (None, []):
+                    set_records = await self._resolve_relation_records(
+                        delegate,
+                        write["set"],
+                        relation_name,
+                    )
+                    await self._attach_inverse_records(
+                        delegate,
+                        relation_name,
+                        config,
+                        set_records,
+                        record,
+                    )
+
+            if "create" in write:
+                create_payloads = ensure_list(write["create"])
+                if kind == "inverse_one" and len(create_payloads) > 1:
+                    raise ValueError(f"Relation '{relation_name}' only accepts a single record")
+
+                for payload in create_payloads:
+                    if not isinstance(payload, Mapping):
+                        raise ValueError(
+                            f"Relation '{relation_name}' expects mapping payloads for create"
+                        )
+                    create_data = self._prepare_inverse_relation_create_data(
+                        config,
+                        record,
+                        cast(Mapping[str, Any], payload),
+                    )
+                    await delegate.create(create_data)
+
+            if "connect" in write:
+                connect_records = await self._resolve_relation_records(
+                    delegate,
+                    write["connect"],
+                    relation_name,
+                )
+                await self._attach_inverse_records(
+                    delegate,
+                    relation_name,
+                    config,
+                    connect_records,
+                    record,
+                )
+
+            if "connectOrCreate" in write:
+                connect_or_create_records = await self._connect_or_create_relation_records(
+                    delegate,
+                    write["connectOrCreate"],
+                    relation_name,
+                    lambda payload: self._prepare_inverse_relation_create_data(
+                        relation_config,
+                        record,
+                        payload,
+                    ),
+                )
+                await self._attach_inverse_records(
+                    delegate,
+                    relation_name,
+                    config,
+                    connect_or_create_records,
+                    record,
+                )
+
+            if "update" in write:
+                update_entries = self._normalize_nested_entries(write["update"], relation_name)
+                if kind == "inverse_one" and len(update_entries) > 1:
+                    raise ValueError(f"Relation '{relation_name}' only accepts a single update payload")
+
+                for update_entry in update_entries:
+                    if kind == "inverse_one":
+                        target_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                        )
+                        self._ensure_singular_relation_write(relation_name, target_records)
+                        if not target_records:
+                            raise RecordNotFoundError(
+                                f"Related record for '{relation_name}' was not found for nested update"
+                            )
+                        raw_data = update_entry.get("data")
+                        if isinstance(raw_data, Mapping):
+                            update_data = dict(raw_data)
+                        else:
+                            update_data = dict(update_entry)
+                    else:
+                        where_clause = update_entry.get("where")
+                        data_clause = update_entry.get("data")
+                        if not isinstance(where_clause, Mapping) or not isinstance(data_clause, Mapping):
+                            raise ValueError(
+                                f"Relation '{relation_name}' update expects 'where' and 'data' mappings"
+                            )
+                        target_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                            cast(Mapping[str, Any], where_clause),
+                        )
+                        update_data = dict(data_clause)
+
+                    for target_record in target_records:
+                        await delegate.update(
+                            delegate._build_primary_where(target_record),
+                            cast(Dict[str, Any], update_data),
+                        )
+
+            if kind == "inverse_many" and "updateMany" in write:
+                update_many_entries = self._normalize_nested_entries(write["updateMany"], relation_name)
+                for update_entry in update_many_entries:
+                    data_clause = update_entry.get("data")
+                    where_clause = update_entry.get("where")
+                    if not isinstance(data_clause, Mapping):
+                        raise ValueError(
+                            f"Relation '{relation_name}' updateMany expects a 'data' mapping"
+                        )
+
+                    target_records = await self._find_relation_records_for_write(
+                        delegate,
+                        relation_name,
+                        config,
+                        record,
+                        cast(Optional[Mapping[str, Any]], where_clause)
+                        if isinstance(where_clause, Mapping)
+                        else None,
+                    )
+                    for target_record in target_records:
+                        await delegate.update(
+                            delegate._build_primary_where(target_record),
+                            cast(Dict[str, Any], dict(data_clause)),
+                        )
+
+            if "upsert" in write:
+                upsert_entries = self._normalize_nested_entries(write["upsert"], relation_name)
+                if kind == "inverse_one" and len(upsert_entries) > 1:
+                    raise ValueError(f"Relation '{relation_name}' only accepts a single upsert payload")
+
+                for upsert_entry in upsert_entries:
+                    if kind == "inverse_one":
+                        target_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                        )
+                        update_clause = upsert_entry.get("update")
+                        create_clause = upsert_entry.get("create")
+                    else:
+                        where_clause = upsert_entry.get("where")
+                        update_clause = upsert_entry.get("update")
+                        create_clause = upsert_entry.get("create")
+                        if not isinstance(where_clause, Mapping):
+                            raise ValueError(
+                                f"Relation '{relation_name}' upsert expects a 'where' mapping"
+                            )
+                        target_records = await self._find_relation_records_for_write(
+                            delegate,
+                            relation_name,
+                            config,
+                            record,
+                            cast(Mapping[str, Any], where_clause),
+                        )
+
+                    if target_records:
+                        if not isinstance(update_clause, Mapping):
+                            raise ValueError(
+                                f"Relation '{relation_name}' upsert expects an 'update' mapping"
+                            )
+                        await delegate.update(
+                            delegate._build_primary_where(target_records[0]),
+                            cast(Dict[str, Any], dict(update_clause)),
+                        )
+                    else:
+                        if not isinstance(create_clause, Mapping):
+                            raise ValueError(
+                                f"Relation '{relation_name}' upsert expects a 'create' mapping"
+                            )
+                        create_data = self._prepare_inverse_relation_create_data(
+                            config,
+                            record,
+                            cast(Mapping[str, Any], create_clause),
+                        )
+                        await delegate.create(create_data)
+
+            if write.get("delete") is True:
+                delete_records = await self._find_relation_records_for_write(
+                    delegate,
+                    relation_name,
+                    config,
+                    record,
+                )
+                if kind == "inverse_one":
+                    self._ensure_singular_relation_write(relation_name, delete_records)
+                for delete_record in delete_records:
+                    await delegate.delete(delegate._build_primary_where(delete_record))
+            elif "delete" in write:
+                delete_entries = self._normalize_nested_entries(write["delete"], relation_name)
+                for delete_entry in delete_entries:
+                    delete_records = await self._find_relation_records_for_write(
+                        delegate,
+                        relation_name,
+                        config,
+                        record,
+                        cast(Mapping[str, Any], delete_entry),
+                    )
+                    if kind == "inverse_one":
+                        self._ensure_singular_relation_write(relation_name, delete_records)
+                    for delete_record in delete_records:
+                        await delegate.delete(delegate._build_primary_where(delete_record))
+
+            if kind == "inverse_many" and "deleteMany" in write:
+                delete_many_entries = self._normalize_nested_entries(write["deleteMany"], relation_name)
+                for delete_entry in delete_many_entries:
+                    delete_records = await self._find_relation_records_for_write(
+                        delegate,
+                        relation_name,
+                        config,
+                        record,
+                        cast(Optional[Mapping[str, Any]], delete_entry),
+                    )
+                    for delete_record in delete_records:
+                        await delegate.delete(delegate._build_primary_where(delete_record))
+
+            if write.get("disconnect") is True:
+                await self._clear_inverse_relations(delegate, relation_name, config, record)
+            elif "disconnect" in write:
+                disconnect_records = await self._resolve_relation_records(
+                    delegate,
+                    write["disconnect"],
+                    relation_name,
+                )
+                await self._detach_inverse_records(
+                    delegate,
+                    relation_name,
+                    config,
+                    disconnect_records,
+                )
+
+    async def update(
+        self,
+        where: UserRoleWhereUniqueInput,
+        data: UserRoleUpdateInput,
+        select: Optional[UserRoleSelect] = None,
+        omit: Optional[UserRoleOmit] = None,
+        include: Optional[UserRoleInclude] = None,
+    ) -> Optional[UserRole]:
+        """Update a record"""
+        conn = await self._get_conn()
+
+        existing = await self.find_unique(where)
+        if not existing:
+            return None
+
+        normalized_where = self._normalize_unique_where(where)
+        data_dict = dict(data)
+        relation_writes = self._extract_relation_writes(data_dict)
+        if relation_writes and not self._is_in_transaction():
+            async with self._transaction_scope():
+                return await self.update(where, data, select=select, omit=omit, include=include)
+
+        await self._apply_pre_write_relations(data_dict, relation_writes, existing)
+        for key in list(data_dict.keys()):
+            if key not in self.FIELDS:
+                del data_dict[key]
+
+        for field in self.NUMERIC_FIELDS:
+            if field in data_dict and isinstance(data_dict[field], dict):
+                current = getattr(existing, field)
+                data_dict[field] = apply_atomic_update(current, field, data_dict[field])
+
+        for field in self.SCALAR_LIST_FIELDS:
+            if field in data_dict and isinstance(data_dict[field], Mapping):
+                current = getattr(existing, field)
+                data_dict[field] = apply_scalar_list_update(current, data_dict[field])
+
+        for k, v in list(data_dict.items()):
+            if k in self.SCALAR_LIST_FIELDS:
+                data_dict[k] = serialize_scalar_list_field_value(
+                    v,
+                    self.SCALAR_LIST_FIELD_TYPES.get(k, "Any"),
+                    self.SCALAR_LIST_ENUM_FIELDS.get(k),
+                )
+            elif k in self.JSON_FIELDS:
+                data_dict[k] = serialize_json_field_value(v)
+            elif isinstance(v, bool):
+                if SQLBuilder.PROVIDER == "sqlite":
+                    data_dict[k] = 1 if v else 0
+                else:
+                    data_dict[k] = v
+            elif k in self.DATETIME_FIELDS:
+                data_dict[k] = normalize_datetime_field_value(v, SQLBuilder.PROVIDER)
+            elif isinstance(v, PyEnum):
+                data_dict[k] = v.value
+
+        fields = [k for k in data_dict.keys() if k in self.FIELDS and k not in self.PK_FIELDS]
+        record_where = cast(UserRoleWhereUniqueInput, self._build_primary_where(existing))
+        if not fields:
+            stored_record = await self.find_unique(record_where)
+            if stored_record is None:
+                return None
+            await self._apply_post_write_relations(stored_record, relation_writes)
+            if not (select or omit or include):
+                return stored_record
+            return await self.find_unique(record_where, select=select, omit=omit, include=include)
+
+        set_parts = []
+        values = []
+        for i, f in enumerate(fields):
+            set_parts.append(f'{SQLBuilder.quote_identifier(self._db_column(f))} = {SQLBuilder.placeholder(i)}')
+            values.append(data_dict[f])
+
+        set_clause = ", ".join(set_parts)
+        where_sql, where_params, _ = SQLBuilder.build_where(
+            normalized_where,
+            "",
+            len(fields),
+            self.FIELD_TO_COLUMN,
+            self.SCALAR_LIST_FIELDS,
+        )
+        sql = f'UPDATE {SQLBuilder.quote_identifier(self.TABLE)} SET {set_clause} WHERE {where_sql}'
+
+        await execute_write_query(conn, sql, values + where_params, self._commit_if_needed)
+
+        stored_record = await self.find_unique(record_where)
+        if stored_record is None:
+            return None
+
+        await self._apply_post_write_relations(stored_record, relation_writes)
+        if not (select or omit or include):
+            return stored_record
+        return await self.find_unique(record_where, select=select, omit=omit, include=include)
+
+    async def update_many(
+        self,
+        where: Optional[UserRoleWhereInput],
+        data: UserRoleUpdateInput,
+        limit: Optional[int] = None,
+    ) -> Dict[str, int]:
+        """Update multiple records"""
+        data_dict = dict(data)
+
+        for key in list(data_dict.keys()):
+            if key not in self.FIELDS:
+                del data_dict[key]
+
+        has_scalar_list_operations = any(
+            isinstance(data_dict.get(f), Mapping) for f in self.SCALAR_LIST_FIELDS
+        )
+
+        for k, v in list(data_dict.items()):
+            if k in self.SCALAR_LIST_FIELDS and not isinstance(v, Mapping):
+                data_dict[k] = serialize_scalar_list_field_value(
+                    v,
+                    self.SCALAR_LIST_FIELD_TYPES.get(k, "Any"),
+                    self.SCALAR_LIST_ENUM_FIELDS.get(k),
+                )
+            elif k in self.JSON_FIELDS:
+                data_dict[k] = serialize_json_field_value(v)
+            elif isinstance(v, bool):
+                if SQLBuilder.PROVIDER == "sqlite":
+                    data_dict[k] = 1 if v else 0
+                else:
+                    data_dict[k] = v
+            elif k in self.DATETIME_FIELDS:
+                data_dict[k] = normalize_datetime_field_value(v, SQLBuilder.PROVIDER)
+            elif isinstance(v, PyEnum):
+                data_dict[k] = v.value
+
+        where_requires_python_evaluation = self._where_requires_python_evaluation(where)
+        has_atomic = any(isinstance(data_dict.get(f), dict) for f in self.NUMERIC_FIELDS)
+
+        if has_atomic or has_scalar_list_operations or where_requires_python_evaluation or limit is not None:
+            records = await self.find_many(where=where, take=limit)
+            scalar_data = cast(UserRoleUpdateInput, data_dict)
+            for rec in records:
+                await self.update(
+                    cast(UserRoleWhereUniqueInput, self._build_primary_where(rec)),
+                    scalar_data,
+                )
+            return {"count": len(records)}
+
+        fields = [k for k in data_dict.keys() if k in self.FIELDS and k not in self.PK_FIELDS]
+
+        conn = await self._get_conn()
+
+        set_parts = []
+        values = []
+        for i, f in enumerate(fields):
+            set_parts.append(f'{SQLBuilder.quote_identifier(self._db_column(f))} = {SQLBuilder.placeholder(i)}')
+            values.append(data_dict[f])
+
+        set_clause = ", ".join(set_parts)
+        where_sql = ""
+        where_params: List[Any] = []
+        if where:
+            where_sql, where_params, _ = self._build_sql_where(dict(where), "", len(fields))
+        sql = f'UPDATE {SQLBuilder.quote_identifier(self.TABLE)} SET {set_clause}'
+        if where_sql:
+            sql += f" WHERE {where_sql}"
+
+        count = await execute_write_query(
+            conn,
+            sql,
+            values + where_params,
+            self._commit_if_needed,
+        )
+
+        return {"count": count}
+
+    async def update_many_and_return(
+        self,
+        data: UserRoleUpdateInput,
+        where: Optional[UserRoleWhereInput] = None,
+        limit: Optional[int] = None,
+        select: Optional[UserRoleSelect] = None,
+        omit: Optional[UserRoleOmit] = None,
+    ) -> List[UserRole]:
+        """Update multiple records and return the stored rows"""
+        data_dict = dict(data)
+        for field in self.UPDATED_AT_FIELDS:
+            data_dict[field] = get_datetime_value(SQLBuilder.PROVIDER)
+
+        for key in list(data_dict.keys()):
+            if key not in self.FIELDS:
+                del data_dict[key]
+
+        has_scalar_list_operations = any(
+            isinstance(data_dict.get(f), Mapping) for f in self.SCALAR_LIST_FIELDS
+        )
+
+        for k, v in list(data_dict.items()):
+            if k in self.SCALAR_LIST_FIELDS and not isinstance(v, Mapping):
+                data_dict[k] = serialize_scalar_list_field_value(
+                    v,
+                    self.SCALAR_LIST_FIELD_TYPES.get(k, "Any"),
+                    self.SCALAR_LIST_ENUM_FIELDS.get(k),
+                )
+            elif k in self.JSON_FIELDS:
+                data_dict[k] = serialize_json_field_value(v)
+            elif isinstance(v, bool):
+                if SQLBuilder.PROVIDER == "sqlite":
+                    data_dict[k] = 1 if v else 0
+                else:
+                    data_dict[k] = v
+            elif k in self.DATETIME_FIELDS:
+                data_dict[k] = normalize_datetime_field_value(v, SQLBuilder.PROVIDER)
+            elif isinstance(v, PyEnum):
+                data_dict[k] = v.value
+
+        where_requires_python_evaluation = self._where_requires_python_evaluation(where)
+        has_atomic = any(isinstance(data_dict.get(f), dict) for f in self.NUMERIC_FIELDS)
+        can_use_returning_update = (
+            SQLBuilder.PROVIDER != "mysql"
+            and limit is None
+            and not has_atomic
+            and not has_scalar_list_operations
+            and not where_requires_python_evaluation
+        )
+
+        if can_use_returning_update:
+            fields = [k for k in data_dict.keys() if k in self.FIELDS and k not in self.PK_FIELDS]
+            if fields:
+                conn = await self._get_conn()
+                set_parts: List[str] = []
+                values: List[Any] = []
+                for i, f in enumerate(fields):
+                    set_parts.append(f'{SQLBuilder.quote_identifier(self._db_column(f))} = {SQLBuilder.placeholder(i)}')
+                    values.append(data_dict[f])
+
+                where_sql = ""
+                where_params: List[Any] = []
+                if where:
+                    where_sql, where_params, _ = self._build_sql_where(dict(where), "", len(fields))
+
+                returning_sql, selected_fields = SQLBuilder.build_select(
+                    self.TABLE,
+                    self.FIELDS,
+                    cast(Optional[SelectDict], select),
+                    cast(Optional[SelectDict], omit),
+                    field_map=self.FIELD_TO_COLUMN,
+                )
+                sql = (
+                    f'UPDATE {SQLBuilder.quote_identifier(self.TABLE)} '
+                    f'SET {", ".join(set_parts)}'
+                )
+                if where_sql:
+                    sql += f" WHERE {where_sql}"
+                sql += f" RETURNING {returning_sql}"
+
+                rows = await fetch_dict_rows(
+                    conn,
+                    sql,
+                    values + where_params,
+                    selected_fields,
+                )
+                await self._commit_if_needed(conn)
+                return [self._row_to_model(row, selected_fields) for row in rows]
+
+        records = await self.find_many(where=where, take=limit)
+        updated_records: List[UserRole] = []
+        for record in records:
+            updated = await self.update(
+                cast(UserRoleWhereUniqueInput, self._build_primary_where(record)),
+                data,
+                select=select,
+                omit=omit,
+            )
+            if updated is not None:
+                updated_records.append(updated)
+
+        return updated_records
+
+    async def delete(
+        self,
+        where: UserRoleWhereUniqueInput,
+        select: Optional[UserRoleSelect] = None,
+        omit: Optional[UserRoleOmit] = None,
+        include: Optional[UserRoleInclude] = None,
+    ) -> Optional[UserRole]:
+        """Delete a record"""
+        conn = await self._get_conn()
+
+        existing = await self.find_unique(where, select=select, omit=omit, include=include)
+        if not existing:
+            return None
+
+        normalized_where = self._normalize_unique_where(where)
+        where_sql, params, _ = SQLBuilder.build_where(
+            normalized_where,
+            field_map=self.FIELD_TO_COLUMN,
+            scalar_list_fields=self.SCALAR_LIST_FIELDS,
+        )
+        sql = f'DELETE FROM {SQLBuilder.quote_identifier(self.TABLE)} WHERE {where_sql}'
+
+        await execute_write_query(conn, sql, params, self._commit_if_needed)
+        return existing
+
+    async def delete_many(
+        self,
+        where: Optional[UserRoleWhereInput] = None,
+    ) -> Dict[str, int]:
+        """Delete multiple records"""
+        where_requires_python_evaluation = self._where_requires_python_evaluation(where)
+        if where_requires_python_evaluation:
+            records = await self.find_many(where=where)
+            for record in records:
+                await self.delete(cast(UserRoleWhereUniqueInput, self._build_primary_where(record)))
+            return {"count": len(records)}
+
+        conn = await self._get_conn()
+
+        sql = f'DELETE FROM {SQLBuilder.quote_identifier(self.TABLE)}'
+        params: List[Any] = []
+
+        if where:
+            where_sql, params, _ = self._build_sql_where(dict(where))
+            if where_sql:
+                sql += f" WHERE {where_sql}"
+
+        count = await execute_write_query(conn, sql, params, self._commit_if_needed)
+        return {"count": count}
+
+    async def count(
+        self,
+        where: Optional[UserRoleWhereInput] = None,
+        cursor: Optional[UserRoleWhereUniqueInput] = None,
+        take: Optional[int] = None,
+        skip: Optional[int] = None,
+    ) -> int:
+        """Count records"""
+        where_requires_python_evaluation = self._where_requires_python_evaluation(where)
+        if cursor or where_requires_python_evaluation or (take is not None and take < 0):
+            records = await self.find_many(where=where, cursor=cursor, take=take, skip=skip)
+            return len(records)
+
+        conn = await self._get_conn()
+        where_sql = ""
+        params: List[Any] = []
+
+        if where:
+            where_sql, params, _ = self._build_sql_where(dict(where))
+        return await execute_count_query(conn, self.TABLE, where_sql, params, take, skip)
+
+    async def upsert(
+        self,
+        where: UserRoleWhereUniqueInput,
+        create: UserRoleCreateInput,
+        update: UserRoleUpdateInput,
+        select: Optional[UserRoleSelect] = None,
+        omit: Optional[UserRoleOmit] = None,
+        include: Optional[UserRoleInclude] = None,
+    ) -> UserRole:
+        """Update or create"""
+        create_dict = dict(create)
+        update_dict = dict(update)
+        normalized_where = self._normalize_unique_where(where)
+        conflict_fields = self._unique_fields_for_normalized_where(normalized_where)
+
+        has_relation_writes = any(
+            key in self.RELATION_CONFIGS
+            for key in list(create_dict.keys()) + list(update_dict.keys())
+        )
+        has_atomic_updates = any(
+            field in update_dict and isinstance(update_dict[field], Mapping)
+            for field in self.NUMERIC_FIELDS
+        )
+        has_scalar_list_operations = any(
+            field in update_dict and isinstance(update_dict[field], Mapping)
+            for field in self.SCALAR_LIST_FIELDS
+        )
+
+        can_use_native_upsert = bool(conflict_fields) and not (
+            has_relation_writes or has_atomic_updates or has_scalar_list_operations
+        )
+
+        if can_use_native_upsert:
+            create_dict = self._generate_defaults(create_dict)
+            create_dict = self._prepare_create_data(create_dict)
+            update_dict = self._prepare_create_data(update_dict)
+            normalized_conflict_values = self._prepare_create_data(dict(normalized_where))
+
+            assert conflict_fields is not None
+            for field in conflict_fields:
+                if field not in create_dict or create_dict.get(field) != normalized_conflict_values.get(field):
+                    can_use_native_upsert = False
+                    break
+
+            insert_fields = [field for field in create_dict.keys() if field in self.FIELDS]
+            update_fields = [
+                field
+                for field in update_dict.keys()
+                if field in self.FIELDS and field not in self.PK_FIELDS
+            ]
+            if not insert_fields:
+                can_use_native_upsert = False
+
+            if can_use_native_upsert:
+                conn = await self._get_conn()
+                insert_values = [create_dict[field] for field in insert_fields]
+                update_values = [update_dict[field] for field in update_fields]
+                await execute_native_upsert(
+                    conn,
+                    self.TABLE,
+                    [self._db_column(field) for field in conflict_fields],
+                    [self._db_column(field) for field in insert_fields],
+                    insert_values,
+                    [self._db_column(field) for field in update_fields],
+                    update_values,
+                    self._commit_if_needed,
+                )
+
+                result = await self.find_unique(where, select=select, omit=omit, include=include)
+                if result is None:
+                    raise RecordNotFoundError(f"Failed to load UserRole after upsert")
+                return result
+
+        existing = await self.find_unique(where)
+        if existing:
+            result = await self.update(where, update, select=select, omit=omit, include=include)
+            if result is None:
+                raise RecordNotFoundError(f"Failed to update UserRole")
+            return result
+        return await self.create(create, select=select, omit=omit, include=include)
+
+    async def aggregate(
+        self,
+        where: Optional[UserRoleWhereInput] = None,
+        _count: Optional[Union[bool, Dict[str, bool]]] = None,
+        _avg: Optional[Dict[str, bool]] = None,
+        _sum: Optional[Dict[str, bool]] = None,
+        _min: Optional[Dict[str, bool]] = None,
+        _max: Optional[Dict[str, bool]] = None,
+    ) -> Dict[str, Any]:
+        """Aggregate operations"""
+        where_requires_python_evaluation = self._where_requires_python_evaluation(where)
+        if where_requires_python_evaluation:
+            records = await self.find_many(where=where)
+            return build_python_aggregate_result(
+                records,
+                self.FIELDS,
+                _count,
+                _avg,
+                _sum,
+                _min,
+                _max,
+            )
+
+        conn = await self._get_conn()
+        where_sql = ""
+        params: List[Any] = []
+        if where:
+            where_sql, params, _ = self._build_sql_where(dict(where))
+        return await execute_sql_aggregate(
+            conn,
+            self.TABLE,
+            self.FIELDS,
+            where_sql,
+            params,
+            _count,
+            _avg,
+            _sum,
+            _min,
+            _max,
+            self.FIELD_TO_COLUMN,
+        )
+
+    async def group_by(
+        self,
+        by: List[str],
+        where: Optional[UserRoleWhereInput] = None,
+        order_by: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None,
+        having: Optional[Dict[str, Any]] = None,
+        take: Optional[int] = None,
+        skip: Optional[int] = None,
+        _count: Optional[Union[bool, Dict[str, bool]]] = None,
+        _avg: Optional[Dict[str, bool]] = None,
+        _sum: Optional[Dict[str, bool]] = None,
+        _min: Optional[Dict[str, bool]] = None,
+        _max: Optional[Dict[str, bool]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Group records by scalar fields and compute aggregates"""
+        if not by:
+            raise ValueError("group_by requires at least one field in 'by'")
+
+        invalid_fields = [field for field in by if field not in self.FIELDS]
+        if invalid_fields:
+            raise ValueError(f"Invalid group_by fields: {invalid_fields}")
+
+        valid_fields = set(self.FIELDS)
+        requested_aggregate_inputs = {
+            "_avg": _avg,
+            "_sum": _sum,
+            "_min": _min,
+            "_max": _max,
+        }
+        requested_aggregate_maps = {
+            agg_name: dict(agg_fields) if agg_fields else None
+            for agg_name, agg_fields in requested_aggregate_inputs.items()
+        }
+        requested_count_map = dict(_count) if isinstance(_count, Mapping) else None
+
+        # Aggregate rows may be needed for output, having filters, or aggregate order_by clauses.
+        having_aggregate_inputs = collect_group_by_having_aggregates(having)
+        order_by_aggregate_inputs = collect_group_by_order_by_aggregates(order_by)
+
+        computed_aggregate_inputs: Dict[str, Dict[str, bool]] = {}
+        for agg_name, requested_fields in requested_aggregate_maps.items():
+            merged_fields = {
+                **build_truthy_field_map(requested_fields, valid_fields),
+                **build_truthy_field_map(having_aggregate_inputs.get(agg_name), valid_fields),
+                **build_truthy_field_map(order_by_aggregate_inputs.get(agg_name), valid_fields),
+            }
+            if merged_fields:
+                computed_aggregate_inputs[agg_name] = merged_fields
+
+        include_count_all = _count is True or bool(requested_count_map and requested_count_map.get("_all"))
+        requested_count_fields = build_truthy_field_map(
+            requested_count_map,
+            valid_fields,
+            {"_all"},
+        )
+        computed_count_fields = {
+            **requested_count_fields,
+            **build_truthy_field_map(having_aggregate_inputs.get("_count"), valid_fields),
+            **build_truthy_field_map(order_by_aggregate_inputs.get("_count"), valid_fields),
+        }
+        should_compute_count = include_count_all or bool(computed_count_fields)
+
+        order_by_clauses = [
+            clause for clause in ensure_list(order_by)
+            if isinstance(clause, Mapping)
+        ]
+        can_use_sql_group_by = (
+            not having
+            and not self._where_requires_python_evaluation(where)
+            and len(set(by)) == len(by)
+            and not any(field in self.JSON_FIELDS or field in self.SCALAR_LIST_FIELDS for field in by)
+            and (take is None or take >= 0)
+            and (skip is None or skip >= 0)
+            and not (skip and take is None)
+        )
+
+        sql_order_parts: List[str] = []
+        if can_use_sql_group_by:
+            for order_clause in order_by_clauses:
+                for order_field, direction in dict(order_clause).items():
+                    if order_field not in by or isinstance(direction, Mapping):
+                        can_use_sql_group_by = False
+                        break
+
+                    direction_sql = "DESC" if str(direction).lower() == "desc" else "ASC"
+                    sql_order_parts.append(
+                        f"{SQLBuilder.quote_identifier(self._db_column(order_field))} {direction_sql}"
+                    )
+                if not can_use_sql_group_by:
+                    break
+
+        if can_use_sql_group_by:
+            params: List[Any] = []
+            where_sql = ""
+            if where:
+                where_sql, params, _ = self._build_sql_where(dict(where))
+
+            conn = await self._get_conn()
+            return await execute_sql_group_by(
+                conn,
+                self.TABLE,
+                self.FIELDS,
+                by,
+                where_sql,
+                params,
+                sql_order_parts,
+                take,
+                skip,
+                include_count_all,
+                requested_count_map,
+                computed_count_fields,
+                computed_aggregate_inputs,
+                requested_aggregate_maps,
+                _count,
+                self.FIELD_TO_COLUMN,
+            )
+
+        records = await self.find_many(where=where)
+        return build_python_group_by_rows(
+            records,
+            self.FIELDS,
+            by,
+            having,
+            valid_fields,
+            order_by_clauses,
+            take,
+            skip,
+            include_count_all,
+            requested_count_map,
+            computed_count_fields,
+            computed_aggregate_inputs,
+            requested_aggregate_maps,
+            _count,
+        )
+
+
+
+class PrismaClient:
+    """Async Direct SQL Prisma-style client for FastAPI"""
+
+    def __init__(self, pool_size: int = 5, use_pool: bool = True) -> None:
+        self._conn: Optional[Connection] = None
+        self._pool: Optional[AsyncConnectionPool] = None
+        self._pool_size = pool_size
+        self._use_pool = use_pool
+        self._in_transaction: bool = False
+        self._delegates: Dict[str, Any] = {}
+        self._stmt_cache = PreparedStatementCache()
+        self._connected = False
+        self._transaction_depth: contextvars.ContextVar[int] = contextvars.ContextVar(
+            "prisma_transaction_depth", default=0
+        )
+        self._task_conn: contextvars.ContextVar[Optional[Connection]] = contextvars.ContextVar(
+            "prisma_task_conn", default=None
+        )
+        self._task_conn_task_id: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar(
+            "prisma_task_conn_task_id", default=None
+        )
+        self._task_conn_release: contextvars.ContextVar[Optional[Callable[[], Awaitable[None]]]] = contextvars.ContextVar(
+            "prisma_task_conn_release", default=None
+        )
+        self._user: Optional[UserDelegate] = None
+        self._user_role: Optional[UserRoleDelegate] = None
+
+    async def _get_connection(self) -> Connection:
+        if not self._connected:
+            await self.connect()
+
+        if not self._use_pool:
+            if self._conn is None or not await _connection_is_usable(self._conn):
+                if self._conn is not None:
+                    close_result = self._conn.close()
+                    if inspect.isawaitable(close_result):
+                        await cast(Awaitable[Any], close_result)
+                self._conn = await self._create_connection()
+            return self._conn
+
+        task = asyncio.current_task()
+        task_id = id(task) if task else None
+
+        cached = self._task_conn.get()
+        cached_task_id = self._task_conn_task_id.get()
+        cached_release = self._task_conn_release.get()
+
+        if cached is not None and cached_task_id == task_id:
+            if not await _connection_is_usable(cached):
+                if cached_release is not None:
+                    await cached_release()
+                elif self._pool is not None:
+                    await self._pool.put(cached)
+                self._task_conn.set(None)
+                self._task_conn_task_id.set(None)
+                self._task_conn_release.set(None)
+            else:
+                return cached
+
+        assert self._pool is not None
+        conn = await self._pool.get()
+
+        released = False
+
+        async def _release_connection_once(_conn: Connection = conn) -> None:
+            nonlocal released
+            if released:
+                return
+            released = True
+
+            if self._pool is not None:
+                await self._pool.put(_conn)
+
+            if self._task_conn.get() is _conn:
+                self._task_conn.set(None)
+                self._task_conn_task_id.set(None)
+                self._task_conn_release.set(None)
+
+        self._task_conn.set(conn)
+        self._task_conn_task_id.set(task_id)
+        self._task_conn_release.set(_release_connection_once)
+
+        if task is not None:
+            def _release(_t: asyncio.Task) -> None:
+                asyncio.create_task(_release_connection_once())
+
+            task.add_done_callback(_release)
+
+        return conn
+
+    async def _release_connection(self, conn: Connection) -> None:
+        """Return connection to pool"""
+        if self._use_pool and self._pool and not self._is_in_transaction():
+            cached = self._task_conn.get()
+            cached_release = self._task_conn_release.get()
+            if cached is conn and cached_release is not None:
+                await cached_release()
+                return
+            await self._pool.put(conn)
+
+    async def _commit_if_needed(self, conn: Connection) -> None:
+        if not self._is_in_transaction():
+            await conn.commit()
+
+
+    async def _create_connection(self) -> Connection:
+        """Create a new database connection"""
+        database_url = os.getenv("DATABASE_URL", "file:./prisma/dev.db")
+        db_path = database_url.replace("file:", "")
+        db_path = db_path.replace("sqlite:", "")
+        project_root = Path(__file__).parent.parent.parent.parent
+        db_full_path = (project_root / db_path).resolve()
+        db_full_path.parent.mkdir(parents=True, exist_ok=True)
+        conn = await aiosqlite.connect(str(db_full_path))
+        await conn.execute("PRAGMA foreign_keys = ON")
+        return conn
+
+    def _get_delegate(self, model_name: str) -> Any:
+        """Get delegate by model name for relation loading"""
+        if model_name not in self._delegates:
+            prop_name = ''.join(['_' + c.lower() if c.isupper() else c for c in model_name]).lstrip('_')
+            if hasattr(self, prop_name):
+                getattr(self, prop_name)
+        return self._delegates.get(model_name)
+
+    def _is_in_transaction(self) -> bool:
+        return self._transaction_depth.get() > 0
+
+    @asynccontextmanager
+    async def _transaction_scope(self) -> AsyncGenerator[None, None]:
+        if self._is_in_transaction():
+            yield
+            return
+
+        async with self.transaction():
+            yield
+
+    async def connect(self) -> "PrismaClient":
+        """Initialize database connection or pool"""
+        if self._connected:
+            return self
+
+        if self._use_pool:
+            if self._pool is None:
+                self._pool = AsyncConnectionPool(self._create_connection, self._pool_size)
+        else:
+            if self._conn is None:
+                self._conn = await self._create_connection()
+
+        self._connected = True
+        return self
+
+    async def disconnect(self) -> None:
+        """Disconnect from database and close pool"""
+        if self._pool:
+            await self._pool.close_all()
+            self._pool = None
+        if self._conn:
+            terminate = getattr(self._conn, "terminate", None)
+            if callable(terminate):
+                terminate()
+            else:
+                # Drivers differ in whether close() returns an awaitable or closes immediately.
+                close_result = self._conn.close()
+                if inspect.isawaitable(close_result):
+                    await cast(Awaitable[Any], close_result)
+            self._conn = None
+        self._task_conn.set(None)
+        self._task_conn_task_id.set(None)
+        self._stmt_cache.clear()
+        self._connected = False
+
+    @property
+    def user(self) -> UserDelegate:
+        if not self._user:
+            self._user = UserDelegate(
+                self._get_connection,
+                self._get_delegate,
+                self._commit_if_needed,
+                self._transaction_scope,
+                self._is_in_transaction,
+            )
+            self._delegates["User"] = self._user
+        return self._user
+
+    @property
+    def user_role(self) -> UserRoleDelegate:
+        if not self._user_role:
+            self._user_role = UserRoleDelegate(
+                self._get_connection,
+                self._get_delegate,
+                self._commit_if_needed,
+                self._transaction_scope,
+                self._is_in_transaction,
+            )
+            self._delegates["UserRole"] = self._user_role
+        return self._user_role
+
+    @asynccontextmanager
+    async def transaction(self) -> AsyncGenerator["PrismaClient", None]:
+        """Execute in transaction"""
+        if self._is_in_transaction():
+            yield self
+            return
+
+        conn = await self._get_connection()
+        depth_token = self._transaction_depth.set(self._transaction_depth.get() + 1)
+        self._in_transaction = True
+        try:
+            yield self
+            await conn.commit()
+        except Exception:
+            await conn.rollback()
+            raise
+        finally:
+            self._transaction_depth.reset(depth_token)
+            self._in_transaction = False
+
+    def _normalize_raw_query(self, query: str) -> str:
+        if SQLBuilder.PROVIDER != "postgresql" or "?" not in query:
+            return query
+
+        result: List[str] = []
+        placeholder_index = 1
+        index = 0
+        in_single_quote = False
+        in_double_quote = False
+        in_line_comment = False
+        in_block_comment = False
+
+        while index < len(query):
+            char = query[index]
+            next_char = query[index + 1] if index + 1 < len(query) else ""
+
+            if in_line_comment:
+                result.append(char)
+                if char == "\n":
+                    in_line_comment = False
+                index += 1
+                continue
+
+            if in_block_comment:
+                result.append(char)
+                if char == "*" and next_char == "/":
+                    result.append(next_char)
+                    index += 2
+                    in_block_comment = False
+                    continue
+                index += 1
+                continue
+
+            if in_single_quote:
+                result.append(char)
+                if char == "'" and next_char == "'":
+                    result.append(next_char)
+                    index += 2
+                    continue
+                if char == "'":
+                    in_single_quote = False
+                index += 1
+                continue
+
+            if in_double_quote:
+                result.append(char)
+                if char == '"' and next_char == '"':
+                    result.append(next_char)
+                    index += 2
+                    continue
+                if char == '"':
+                    in_double_quote = False
+                index += 1
+                continue
+
+            if char == "-" and next_char == "-":
+                result.append(char)
+                result.append(next_char)
+                index += 2
+                in_line_comment = True
+                continue
+
+            if char == "/" and next_char == "*":
+                result.append(char)
+                result.append(next_char)
+                index += 2
+                in_block_comment = True
+                continue
+
+            if char == "'":
+                result.append(char)
+                in_single_quote = True
+                index += 1
+                continue
+
+            if char == '"':
+                result.append(char)
+                in_double_quote = True
+                index += 1
+                continue
+
+            if char == "?":
+                result.append(f"${placeholder_index}")
+                placeholder_index += 1
+                index += 1
+                continue
+
+            result.append(char)
+            index += 1
+
+        return "".join(result)
+
+    async def query_raw(self, query: str, *args: Any) -> List[Dict[str, Any]]:
+        """Execute raw SQL query"""
+        conn = await self._get_connection()
+        async with conn.execute(query, args if args else ()) as cursor:
+            columns = [desc[0] for desc in cursor.description] if cursor.description else []
+            rows = await cursor.fetchall()
+            return [dict(zip(columns, row)) for row in rows]
+
+    async def execute_raw(self, query: str, *args: Any) -> int:
+        """Execute raw SQL command"""
+        conn = await self._get_connection()
+        cursor = await conn.execute(query, args if args else ())
+        count = cursor.rowcount
+        await self._commit_if_needed(conn)
+        return count
+
+    async def __aenter__(self) -> "PrismaClient":
+        await self.connect()
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        await self.disconnect()
+
+    async def batch(self, operations: List[Callable[[], Awaitable[Any]]]) -> List[Any]:
+        """Execute multiple operations in a single transaction"""
+        results: List[Any] = []
+        async with self.transaction():
+            for op in operations:
+                results.append(await op())
+        return results
+
+
+prisma = PrismaClient(use_pool=True)

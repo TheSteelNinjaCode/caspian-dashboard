@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 6,
+  "generatedAt": "2026-06-09T05:04:12.099Z",
+  "project": {
+    "type": "caspian",
+    "framework": "caspian",
+    "language": "py",
+    "detectedBy": "caspian.config.json",
+    "rootDirectory": ".",
+    "sourceDirectory": "src",
+    "configFile": "caspian.config.json",
+    "manifestFile": "ppicons.json",
+    "componentsDirectory": "src/lib/ppicons",
+    "iconsDirectory": "src/lib/ppicons",
+    "copilotInstructionsFile": ".github/instructions/ppicons.instructions.md"
+  },
+  "commands": {
+    "addOne": "npx ppicons add <icon-name>",
+    "addMany": "npx ppicons add <icon-a> <icon-b>",
+    "addAll": "npx ppicons add --all",
+    "updateInstalled": "npx ppicons update"
+  },
+  "catalogApi": {
+    "listAll": {
+      "method": "GET",
+      "url": "https://ppicons.tsnc.tech/icons?icon=all",
+      "returns": "IconRecord[]",
+      "purpose": "List all available icons that can be installed."
+    },
+    "getOne": {
+      "method": "GET",
+      "urlTemplate": "https://ppicons.tsnc.tech/icons?icon=<icon-name>",
+      "exampleUrl": "https://ppicons.tsnc.tech/icons?icon=search",
+      "returns": "IconRecord",
+      "purpose": "Fetch one icon by name before installing it."
+    },
+    "responseFields": {
+      "id": "number",
+      "name": "string",
+      "componentName": "string",
+      "svg": "string",
+      "createdAt": "number",
+      "updatedAt": "number"
+    }
+  },
+  "icons": [
+    {
+      "name": "arrow-left",
+      "componentName": "ArrowLeft",
+      "file": "src/lib/ppicons/ArrowLeft.py"
+    },
+    {
+      "name": "arrow-right",
+      "componentName": "ArrowRight",
+      "file": "src/lib/ppicons/ArrowRight.py"
+    },
+    {
+      "name": "calendar",
+      "componentName": "Calendar",
+      "file": "src/lib/ppicons/Calendar.py"
+    },
+    {
+      "name": "check",
+      "componentName": "Check",
+      "file": "src/lib/ppicons/Check.py"
+    },
+    {
+      "name": "chevron-down",
+      "componentName": "ChevronDown",
+      "file": "src/lib/ppicons/ChevronDown.py"
+    },
+    {
+      "name": "chevron-left",
+      "componentName": "ChevronLeft",
+      "file": "src/lib/ppicons/ChevronLeft.py"
+    },
+    {
+      "name": "chevron-right",
+      "componentName": "ChevronRight",
+      "file": "src/lib/ppicons/ChevronRight.py"
+    },
+    {
+      "name": "chevrons-up-down",
+      "componentName": "ChevronsUpDown",
+      "file": "src/lib/ppicons/ChevronsUpDown.py"
+    },
+    {
+      "name": "chevron-up",
+      "componentName": "ChevronUp",
+      "file": "src/lib/ppicons/ChevronUp.py"
+    },
+    {
+      "name": "circle",
+      "componentName": "Circle",
+      "file": "src/lib/ppicons/Circle.py"
+    },
+    {
+      "name": "ellipsis",
+      "componentName": "Ellipsis",
+      "file": "src/lib/ppicons/Ellipsis.py"
+    },
+    {
+      "name": "minus",
+      "componentName": "Minus",
+      "file": "src/lib/ppicons/Minus.py"
+    },
+    {
+      "name": "panel-left",
+      "componentName": "PanelLeft",
+      "file": "src/lib/ppicons/PanelLeft.py"
+    },
+    {
+      "name": "search",
+      "componentName": "Search",
+      "file": "src/lib/ppicons/Search.py"
+    },
+    {
+      "name": "x",
+      "componentName": "X",
+      "file": "src/lib/ppicons/X.py"
+    }
+  ],
+  "usage": {
+    "componentType": "function",
+    "entryStyle": "module",
+    "entry": "src.lib.ppicons",
+    "filePattern": "src/lib/ppicons/<ComponentName>.py",
+    "syntax": "jsx-like component tags"
+  }
+}

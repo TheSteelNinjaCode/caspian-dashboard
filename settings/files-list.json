@@ -1,0 +1,13 @@
+[
+  "./src/app/error.html",
+  "./src/app/globals.css",
+  "./src/app/index.html",
+  "./src/app/layout.html",
+  "./src/app/not-found.html",
+  "./public/css/styles.css",
+  "./public/favicon.ico",
+  "./public/js/bundle-mjs.mjs.map",
+  "./public/js/main.js",
+  "./public/js/pp-reactive-v2.js",
+  "./public/js/tailwind-merge.mjs"
+]

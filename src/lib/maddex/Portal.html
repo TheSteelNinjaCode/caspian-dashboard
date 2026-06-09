@@ -1,0 +1,14 @@
+<div style="display: contents">
+  <div pp-ref="portalRef" {{ portal_attributes }}>
+    {{ overlay }}
+    <div {{ content_attributes }} pp-ref="contentBoxRef">{{ children }} {{ close }}</div>
+  </div>
+
+  <script>
+    const portalRef = pp.ref();
+    const contentBoxRef = pp.ref();
+    const portal = pp.portal(portalRef);
+
+    {{ script }}
+  </script>
+</div>

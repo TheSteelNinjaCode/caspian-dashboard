@@ -1,0 +1,86 @@
+{
+  "style": "default",
+  "force": false,
+  "outputDir": "src/lib/maddex",
+  "iconsInstalled": true,
+  "tailwind": {
+    "css": "src/app/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "pythonPath": "src/lib/maddex",
+  "iconLibrary": "ppicons",
+  "manifest": {
+    "schemaVersion": 1,
+    "generatedAt": "2026-06-09T05:04:14.655Z",
+    "project": {
+      "framework": "maddex",
+      "language": "python",
+      "rootDirectory": ".",
+      "configFile": "maddex.json",
+      "componentsDirectory": "src/lib/maddex",
+      "pythonPath": "src/lib/maddex",
+      "copilotInstructionsFile": ".github/copilot-instructions.md",
+      "maddexInstructionsFile": ".github/instructions/maddex.instructions.md"
+    },
+    "commands": {
+      "addOne": "npx maddex add <component-name>",
+      "addMany": "npx maddex add <component-a> <component-b>",
+      "addAll": "npx maddex add --all",
+      "updateInstalled": "npx maddex update"
+    },
+    "catalogApi": {
+      "listAll": {
+        "method": "GET",
+        "url": "https://maddex.tsnc.tech/cli?component=all",
+        "returns": "string[]",
+        "purpose": "List all available Maddex components that can be installed."
+      },
+      "getOne": {
+        "method": "GET",
+        "urlTemplate": "https://maddex.tsnc.tech/cli?component=<component-name>",
+        "exampleUrl": "https://maddex.tsnc.tech/cli?component=Button",
+        "returns": "MaddexComponentRecord",
+        "purpose": "Fetch one component by name before installing or refreshing it."
+      },
+      "responseFields": {
+        "name": "string",
+        "files": "Array<{ name: string; content: string }> | undefined",
+        "content": "string | undefined"
+      }
+    },
+    "usage": {
+      "componentType": "python module",
+      "entryStyle": "module path",
+      "entry": "src.lib.maddex",
+      "sourcePath": "src/lib/maddex",
+      "filePattern": "src/lib/maddex/<ComponentName>.py",
+      "syntax": "Python imports"
+    },
+    "tailwind": {
+      "css": "src/app/globals.css"
+    },
+    "icons": {
+      "library": "ppicons"
+    },
+    "components": [
+      {
+        "name": "Button",
+        "file": "src/lib/maddex/Button.py"
+      },
+      {
+        "name": "Portal",
+        "file": "src/lib/maddex/Portal.py"
+      },
+      {
+        "name": "Slot",
+        "file": "src/lib/maddex/Slot.py"
+      },
+      {
+        "name": "utils",
+        "file": "src/lib/maddex/utils.py"
+      }
+    ]
+  }
+}

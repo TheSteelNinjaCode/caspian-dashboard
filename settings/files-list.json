@@ -1,6 +1,8 @@
 [
   "./src/app/(auth)/signin/index.html",
   "./src/app/(auth)/signin/index.py",
+  "./src/app/dashboard/index.html",
+  "./src/app/dashboard/layout.html",
   "./src/app/error.html",
   "./src/app/globals.css",
   "./src/app/index.html",

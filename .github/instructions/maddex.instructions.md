@@ -38,7 +38,7 @@ This project uses `maddex` to generate reusable Python UI component modules.
 - Suggested module path: src.lib.maddex
 - Tailwind CSS file: src/app/globals.css
 - Icon library: ppicons
-- Installed component count: 10
+- Installed component count: 11
 - Installed component inventory and project metadata: `maddex.json` (under `manifest`)
 
 ## Installing Components
@@ -104,6 +104,7 @@ Button example:
 
 - Button: `src/lib/maddex/Button.py` (docs: `https://maddex.tsnc.tech/docs/button`)
 - Card: `src/lib/maddex/Card.py` (docs: `https://maddex.tsnc.tech/docs/card`)
+- DropdownMenu: `src/lib/maddex/DropdownMenu.py` (docs: `https://maddex.tsnc.tech/docs/dropdown-menu`)
 - Field: `src/lib/maddex/Field.py` (docs: `https://maddex.tsnc.tech/docs/field`)
 - Input: `src/lib/maddex/Input.py` (docs: `https://maddex.tsnc.tech/docs/input`)
 - Portal: `src/lib/maddex/Portal.py` (docs: `https://maddex.tsnc.tech/docs/portal`)

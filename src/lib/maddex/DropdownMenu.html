@@ -1,0 +1,94 @@
+<div is-open="{{ open }}" on-open-change="{{ onOpenChange }}">
+  <div {{ attributes }}>{{ children|safe }}</div>
+
+  <script>
+    const normalizeControlledValue = (value) => {
+      if (value == null) return undefined;
+      if (typeof value !== "string") return value;
+
+      const normalized = value.trim().toLowerCase();
+      if (
+        normalized === "" ||
+        normalized === "none" ||
+        normalized === "null" ||
+        normalized === "undefined"
+      ) {
+        return undefined;
+      }
+
+      return value;
+    };
+
+    const parseBool = (value) => {
+      if (value === true) return true;
+      if (typeof value !== "string") return false;
+
+      const normalized = value.trim().toLowerCase();
+      return normalized === "" || ["true", "1", "yes", "on"].includes(normalized);
+    };
+
+    const { isOpen: rawIsOpen, onOpenChange } = pp.props;
+    const controlledIsOpen = normalizeControlledValue(rawIsOpen);
+    const isControlled = controlledIsOpen !== undefined;
+
+    const [internalOpen, setInternalOpen] = pp.state(false);
+    const open = isControlled ? parseBool(controlledIsOpen) : internalOpen;
+    const rootRef = pp.ref();
+
+    const updateOpen = (shouldBeOpen) => {
+      if (isControlled) {
+        if (typeof onOpenChange === "function") {
+          onOpenChange(shouldBeOpen);
+        }
+      } else {
+        setInternalOpen(shouldBeOpen);
+      }
+
+      rootRef.current?.dispatchEvent(
+        new CustomEvent("open-change", {
+          detail: shouldBeOpen,
+          bubbles: true,
+        }),
+      );
+    };
+
+    const openMenu = () => updateOpen(true);
+    const closeMenu = () => updateOpen(false);
+    const toggleMenu = () => {
+      const currentState = rootRef.current?.getAttribute("data-state") === "open";
+      updateOpen(!currentState);
+    };
+
+    const onOpen = (event) => {
+      event.stopPropagation();
+      openMenu();
+    };
+
+    const onClose = (event) => {
+      event.stopPropagation();
+      closeMenu();
+    };
+
+    const onToggle = (event) => {
+      event.stopPropagation();
+      toggleMenu();
+    };
+
+    pp.effect(() => {
+      const el = rootRef.current;
+      if (!(el instanceof HTMLElement)) return;
+      const dropdownMenuId = el.getAttribute("data-dropdown-menu-event-id");
+      if (!dropdownMenuId) return;
+
+      el.addEventListener(`dropdown-open:${dropdownMenuId}`, onOpen);
+      el.addEventListener(`dropdown-close:${dropdownMenuId}`, onClose);
+      el.addEventListener(`dropdown-toggle:${dropdownMenuId}`, onToggle);
+
+      return () => {
+        el.removeEventListener(`dropdown-open:${dropdownMenuId}`, onOpen);
+        el.removeEventListener(`dropdown-close:${dropdownMenuId}`, onClose);
+        el.removeEventListener(`dropdown-toggle:${dropdownMenuId}`, onToggle);
+      };
+    }, []);
+  </script>
+</div>

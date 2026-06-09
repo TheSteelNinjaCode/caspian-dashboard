@@ -13,7 +13,7 @@
   "iconLibrary": "ppicons",
   "manifest": {
     "schemaVersion": 1,
-    "generatedAt": "2026-06-09T05:50:58.594Z",
+    "generatedAt": "2026-06-09T06:07:42.741Z",
     "project": {
       "framework": "maddex",
       "language": "python",
@@ -72,6 +72,10 @@
       {
         "name": "Card",
         "file": "src/lib/maddex/Card.py"
+      },
+      {
+        "name": "DropdownMenu",
+        "file": "src/lib/maddex/DropdownMenu.py"
       },
       {
         "name": "Field",

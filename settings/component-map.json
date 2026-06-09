@@ -106,6 +106,253 @@
     "props": []
   },
   {
+    "componentName": "DropdownMenu",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\DropdownMenu.py",
+    "relativePath": "src/lib/maddex/DropdownMenu.py",
+    "importRoute": "src.lib.maddex.DropdownMenu",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "open",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "onOpenChange",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "closeOnOutsideClick",
+        "type": "bool | str",
+        "hasDefault": true,
+        "defaultValue": "True"
+      },
+      {
+        "name": "closeOnSelect",
+        "type": "bool | str",
+        "hasDefault": true,
+        "defaultValue": "True"
+      },
+      {
+        "name": "id",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      }
+    ]
+  },
+  {
+    "componentName": "DropdownMenuTrigger",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\DropdownMenu.py",
+    "relativePath": "src/lib/maddex/DropdownMenu.py",
+    "importRoute": "src.lib.maddex.DropdownMenu",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "asChild",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "DropdownMenuContent",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\DropdownMenu.py",
+    "relativePath": "src/lib/maddex/DropdownMenu.py",
+    "importRoute": "src.lib.maddex.DropdownMenu",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "side",
+        "type": "DropdownMenuSide | str",
+        "hasDefault": true,
+        "defaultValue": "bottom"
+      },
+      {
+        "name": "align",
+        "type": "DropdownMenuAlign | str",
+        "hasDefault": true,
+        "defaultValue": "end"
+      },
+      {
+        "name": "sideOffset",
+        "type": "int | str",
+        "hasDefault": true,
+        "defaultValue": "4"
+      }
+    ]
+  },
+  {
+    "componentName": "DropdownMenuGroup",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\DropdownMenu.py",
+    "relativePath": "src/lib/maddex/DropdownMenu.py",
+    "importRoute": "src.lib.maddex.DropdownMenu",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "asChild",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "DropdownMenuItem",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\DropdownMenu.py",
+    "relativePath": "src/lib/maddex/DropdownMenu.py",
+    "importRoute": "src.lib.maddex.DropdownMenu",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "inset",
+        "type": "bool",
+        "hasDefault": true,
+        "defaultValue": "False"
+      },
+      {
+        "name": "asChild",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      },
+      {
+        "name": "disabled",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "DropdownMenuCheckboxItem",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\DropdownMenu.py",
+    "relativePath": "src/lib/maddex/DropdownMenu.py",
+    "importRoute": "src.lib.maddex.DropdownMenu",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "checked",
+        "type": "bool | str",
+        "hasDefault": true,
+        "defaultValue": "False"
+      },
+      {
+        "name": "disabled",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "DropdownMenuRadioGroup",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\DropdownMenu.py",
+    "relativePath": "src/lib/maddex/DropdownMenu.py",
+    "importRoute": "src.lib.maddex.DropdownMenu",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "value",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      }
+    ]
+  },
+  {
+    "componentName": "DropdownMenuRadioItem",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\DropdownMenu.py",
+    "relativePath": "src/lib/maddex/DropdownMenu.py",
+    "importRoute": "src.lib.maddex.DropdownMenu",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "value",
+        "type": "str",
+        "hasDefault": false
+      },
+      {
+        "name": "checked",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      },
+      {
+        "name": "disabled",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "DropdownMenuLabel",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\DropdownMenu.py",
+    "relativePath": "src/lib/maddex/DropdownMenu.py",
+    "importRoute": "src.lib.maddex.DropdownMenu",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "inset",
+        "type": "bool",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "DropdownMenuSeparator",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\DropdownMenu.py",
+    "relativePath": "src/lib/maddex/DropdownMenu.py",
+    "importRoute": "src.lib.maddex.DropdownMenu",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "DropdownMenuShortcut",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\DropdownMenu.py",
+    "relativePath": "src/lib/maddex/DropdownMenu.py",
+    "importRoute": "src.lib.maddex.DropdownMenu",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "DropdownMenuSub",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\DropdownMenu.py",
+    "relativePath": "src/lib/maddex/DropdownMenu.py",
+    "importRoute": "src.lib.maddex.DropdownMenu",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "DropdownMenuSubTrigger",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\DropdownMenu.py",
+    "relativePath": "src/lib/maddex/DropdownMenu.py",
+    "importRoute": "src.lib.maddex.DropdownMenu",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "inset",
+        "type": "bool",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "DropdownMenuSubContent",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\DropdownMenu.py",
+    "relativePath": "src/lib/maddex/DropdownMenu.py",
+    "importRoute": "src.lib.maddex.DropdownMenu",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
     "componentName": "FieldSet",
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Field.py",
     "relativePath": "src/lib/maddex/Field.py",

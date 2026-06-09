@@ -4,6 +4,8 @@
   "./src/app/index.html",
   "./src/app/layout.html",
   "./src/app/not-found.html",
+  "./src/app/signin/index.html",
+  "./src/app/signin/index.py",
   "./public/css/styles.css",
   "./public/favicon.ico",
   "./public/js/bundle-mjs.mjs.map",

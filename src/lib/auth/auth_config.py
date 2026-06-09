@@ -20,12 +20,12 @@ def build_auth_settings() -> AuthSettings:
         # Token settings
         default_token_validity="1h",
         # Sliding-session refresh only matters when the request flow calls auth.refresh_session().
-        token_auto_refresh=False,
+        token_auto_refresh=True,
 
         # Route protection
         # This app-owned starter config begins public-first; switch to True only when most routes require auth.
         # Use all-private mode when only a few routes should stay public.
-        is_all_routes_private=False,
+        is_all_routes_private=True,
         public_routes=["/", "/health"],
         # Sign-in and signup stay public by default; only change this when the app explicitly needs it.
         auth_routes=["/signin", "/signup"],

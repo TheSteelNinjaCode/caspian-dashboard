@@ -1,12 +1,79 @@
-<div class="space-y-4">
-  <h1 class="text-2xl font-semibold tracking-tight">Profile</h1>
-  <p class="text-sm text-muted-foreground">Manage your account details and session preferences.</p>
-
-  <div class="rounded-lg border border-border bg-card p-4">
-    <p class="text-sm font-medium text-foreground">Name</p>
-    <p class="mt-1 text-sm text-muted-foreground">{{ auth.user.name if auth and auth.user and auth.user.name else "User" }}</p>
-
-    <p class="mt-4 text-sm font-medium text-foreground">Email</p>
-    <p class="mt-1 text-sm text-muted-foreground">{{ auth.user.email if auth and auth.user and auth.user.email else "user@example.com" }}</p>
+<div class="space-y-6">
+  <div class="space-y-2">
+    <h1 class="text-2xl font-semibold tracking-tight">Profile</h1>
+    <p class="max-w-2xl text-sm text-muted-foreground">Review the account data pulled from your signed-in session. This keeps the page aligned with the user record created during sign-in.</p>
   </div>
+
+  <section class="rounded-2xl border border-border bg-card p-5 shadow-sm">
+    <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex items-center gap-4">
+        <div class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/15 text-lg font-semibold text-primary">
+          {% if auth and auth.user and auth.user.image %}
+          <img src="{{ auth.user.image }}" alt="{{ auth.user.name if auth.user.name else auth.user.email if auth.user.email else 'User' }}" class="size-full object-cover" />
+          {% else %}
+          {{ (auth.user.name if auth and auth.user and auth.user.name else 'Guest')[:2].upper() }}
+          {% endif %}
+        </div>
+
+        <div class="min-w-0">
+          <p class="text-xs uppercase tracking-[0.24em] text-muted-foreground">Signed in user</p>
+          <h2 class="truncate text-xl font-semibold text-foreground">{{ auth.user.name if auth and auth.user and auth.user.name else 'Guest' }}</h2>
+          <p class="truncate text-sm text-muted-foreground">{{ auth.user.email if auth and auth.user and auth.user.email else 'No active session' }}</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground">{{ auth.user.userRole.name if auth and auth.user and auth.user.userRole else 'Not signed in' }}</span>
+        <span class="rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">{{ 'Verified' if auth and auth.user and auth.user.emailVerified else 'Unavailable' }}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-xl border border-border bg-background p-4">
+      <p class="text-xs uppercase tracking-[0.2em] text-muted-foreground">Display name</p>
+      <p class="mt-2 text-sm font-medium text-foreground">{{ auth.user.name if auth and auth.user and auth.user.name else 'Guest' }}</p>
+    </div>
+    <div class="rounded-xl border border-border bg-background p-4">
+      <p class="text-xs uppercase tracking-[0.2em] text-muted-foreground">Email</p>
+      <p class="mt-2 text-sm font-medium text-foreground">{{ auth.user.email if auth and auth.user and auth.user.email else 'No active session' }}</p>
+    </div>
+    <div class="rounded-xl border border-border bg-background p-4">
+      <p class="text-xs uppercase tracking-[0.2em] text-muted-foreground">Role</p>
+      <p class="mt-2 text-sm font-medium text-foreground">{{ auth.user.userRole.name if auth and auth.user and auth.user.userRole else 'Not signed in' }}</p>
+    </div>
+    <div class="rounded-xl border border-border bg-background p-4">
+      <p class="text-xs uppercase tracking-[0.2em] text-muted-foreground">Joined</p>
+      <p class="mt-2 text-sm font-medium text-foreground">{{ auth.user.createdAt.strftime('%b %d, %Y') if auth and auth.user and auth.user.createdAt else 'Unavailable' }}</p>
+    </div>
+  </section>
+
+  <section class="rounded-2xl border border-border bg-card p-5">
+    <div class="flex items-center justify-between gap-3 border-b border-border pb-4">
+      <div>
+        <h3 class="text-base font-semibold text-foreground">Session summary</h3>
+        <p class="text-sm text-muted-foreground">These values are sourced from the authenticated user object returned by the signin flow.</p>
+      </div>
+      <a href="/dashboard" class="text-sm font-medium text-primary hover:underline">Back to dashboard</a>
+    </div>
+
+    <dl class="grid gap-4 pt-4 sm:grid-cols-2">
+      <div class="rounded-xl border border-border/70 bg-background p-4">
+        <dt class="text-xs uppercase tracking-[0.2em] text-muted-foreground">Name</dt>
+        <dd class="mt-2 text-sm font-medium text-foreground">{{ auth.user.name if auth and auth.user and auth.user.name else 'Guest' }}</dd>
+      </div>
+      <div class="rounded-xl border border-border/70 bg-background p-4">
+        <dt class="text-xs uppercase tracking-[0.2em] text-muted-foreground">Email</dt>
+        <dd class="mt-2 text-sm font-medium text-foreground">{{ auth.user.email if auth and auth.user and auth.user.email else 'No active session' }}</dd>
+      </div>
+      <div class="rounded-xl border border-border/70 bg-background p-4">
+        <dt class="text-xs uppercase tracking-[0.2em] text-muted-foreground">Account role</dt>
+        <dd class="mt-2 text-sm font-medium text-foreground">{{ auth.user.userRole.name if auth and auth.user and auth.user.userRole else 'Not signed in' }}</dd>
+      </div>
+      <div class="rounded-xl border border-border/70 bg-background p-4">
+        <dt class="text-xs uppercase tracking-[0.2em] text-muted-foreground">Email verification</dt>
+        <dd class="mt-2 text-sm font-medium text-foreground">{{ 'Verified' if auth and auth.user and auth.user.emailVerified else 'Unavailable' }}</dd>
+      </div>
+    </dl>
+  </section>
 </div>

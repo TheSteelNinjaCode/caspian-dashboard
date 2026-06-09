@@ -84,22 +84,31 @@
       <x-sidebar-footer class="group-data-[collapsible=icon]:hidden">
         <x-dropdown-menu class="block w-full">
           <x-dropdown-menu-trigger class="h-auto w-full justify-start gap-3 border border-input bg-background px-3 py-2 shadow-xs hover:bg-accent hover:text-accent-foreground">
-            <div class="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
-              <x-circle class="size-4" />
+            {% if auth and auth.user and auth.user.image %}
+            <img
+              src="{{ auth.user.image }}"
+              alt="{{ auth.user.name if auth.user.name else auth.user.email if auth.user.email else 'User' }}"
+              class="size-8 shrink-0 rounded-full object-cover"
+            />
+            {% else %}
+            <div class="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+              {{ (auth.user.name if auth and auth.user and auth.user.name else 'Guest')[:2].upper() }}
             </div>
+            {% endif %}
             <div class="min-w-0 text-left">
-              <p class="truncate text-sm font-medium text-foreground">{{ auth.user.name if auth and auth.user and auth.user.name else "User" }}</p>
-              <p class="truncate text-xs text-muted-foreground">{{ auth.user.email if auth and auth.user and auth.user.email else "user@example.com" }}</p>
+              <p class="truncate text-sm font-medium text-foreground">{{ auth.user.name if auth and auth.user and auth.user.name else "Guest" }}</p>
+              <p class="truncate text-xs text-muted-foreground">{{ auth.user.userRole.name if auth and auth.user and auth.user.userRole else "Not signed in" }}</p>
             </div>
           </x-dropdown-menu-trigger>
 
           <x-dropdown-menu-content align="end" class="w-56">
             <x-dropdown-menu-label>
-              <p class="truncate text-sm font-medium text-foreground">{{ auth.user.name if auth and auth.user and auth.user.name else "User" }}</p>
-              <p class="truncate text-xs text-muted-foreground">{{ auth.user.email if auth and auth.user and auth.user.email else "user@example.com" }}</p>
+              <p class="truncate text-sm font-medium text-foreground">{{ auth.user.name if auth and auth.user and auth.user.name else "Guest" }}</p>
+              <p class="truncate text-xs text-muted-foreground">{{ auth.user.email if auth and auth.user and auth.user.email else "No active session" }}</p>
+              <p class="truncate text-xs text-muted-foreground">{{ auth.user.userRole.name if auth and auth.user and auth.user.userRole else "Not signed in" }}</p>
             </x-dropdown-menu-label>
             <x-dropdown-menu-separator />
-            <x-dropdown-menu-item>Profile</x-dropdown-menu-item>
+            <x-dropdown-menu-item onclick="{pp.navigateTo('/dashboard/profile')}">Profile</x-dropdown-menu-item>
             <x-dropdown-menu-item onclick="{pp.rpc('signout')}">Sign out</x-dropdown-menu-item>
           </x-dropdown-menu-content>
         </x-dropdown-menu>

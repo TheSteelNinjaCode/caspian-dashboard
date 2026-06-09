@@ -5,55 +5,55 @@
 <div class="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
   <div class="w-full max-w-sm">
     <div class="flex flex-col gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Login to your account</CardTitle>
-          <CardDescription>
+      <x-card>
+        <x-card-header>
+          <x-card-title>Login to your account</x-card-title>
+          <x-card-description>
             Enter your email below to login to your account
             <p class="text-red-500">{requestError}</p>
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          </x-card-description>
+        </x-card-header>
+        <x-card-content>
           <form onsubmit="handleSignin(event)">
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="email">Email</FieldLabel>
-                <Input name="email"
-                       id="email"
-                       type="email"
-                       placeholder="m@example.com"
-                       required />
-              </Field>
-              <Field>
+            <x-field-group>
+              <x-field>
+                <x-field-label htmlFor="email">Email</x-field-label>
+                <x-input name="email"
+                         id="email"
+                         type="email"
+                         placeholder="m@example.com"
+                         required />
+              </x-field>
+              <x-field>
                 <div class="flex items-center">
-                  <FieldLabel htmlFor="password">Password</FieldLabel>
+                  <x-field-label htmlFor="password">Password</x-field-label>
                   <a href="#"
                      class="ml-auto inline-block text-sm underline-offset-4 hover:underline">
                     Forgot your password?
                   </a>
                 </div>
-                <Input name="password"
-                       id="password"
-                       type="password"
-                       required
-                       placeholder="password" />
-              </Field>
-              <Field>
-                <Button type="submit"
-                        disabled={loading}>{loading ? "Loading..." : "Login"}</Button>
-                <Button variant="outline"
-                        type="button"
-                        disabled={loading}>
+                <x-input name="password"
+                         id="password"
+                         type="password"
+                         required
+                         placeholder="password" />
+              </x-field>
+              <x-field>
+                <x-button type="submit"
+                          disabled={loading}>{loading ? "Loading..." : "Login"}</x-button>
+                <x-button variant="outline"
+                          type="button"
+                          disabled={loading}>
                   Login with Google
-                </Button>
-                <FieldDescription class="text-center">
+                </x-button>
+                <x-field-description class="text-center">
                   Don&apos;t have an account? <a href="#">Sign up</a>
-                </FieldDescription>
-              </Field>
-            </FieldGroup>
+                </x-field-description>
+              </x-field>
+            </x-field-group>
           </form>
-        </CardContent>
-      </Card>
+        </x-card-content>
+      </x-card>
     </div>
   </div>
 

@@ -1,0 +1,263 @@
+<div {{ attributes }}>
+  {{ children }}
+
+  <script>
+    const SIDEBAR_COOKIE_NAME = "sidebar_state";
+    const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
+    const SIDEBAR_KEYBOARD_SHORTCUT = "b";
+    const SIDEBAR_MEDIA_QUERY = "(max-width: 767px)";
+
+    const normalizeSentinel = (value) => {
+      if (value == null) return undefined;
+
+      if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+        if (["", "none", "null", "undefined"].includes(normalized)) {
+          return undefined;
+        }
+      }
+
+      return value;
+    };
+
+    const parseBool = (value, fallback = false) => {
+      if (value === true) return true;
+      if (value === false) return false;
+      if (value == null) return fallback;
+      if (typeof value !== "string") return Boolean(value);
+
+      const normalized = value.trim().toLowerCase();
+      if (["true", "1", "yes", "on", "", "{true}"].includes(normalized)) return true;
+      if (["false", "0", "no", "off", "none", "null", "undefined", "{false}"].includes(normalized)) return false;
+      return fallback;
+    };
+
+    const readCookie = (name) => {
+      if (typeof document === "undefined") return undefined;
+
+      const cookies = document.cookie ? document.cookie.split(";") : [];
+      for (const entry of cookies) {
+        const [rawName, ...rawValue] = entry.split("=");
+        if (rawName?.trim() === name) {
+          return rawValue.join("=").trim();
+        }
+      }
+
+      return undefined;
+    };
+
+    const getInitialOpen = () => {
+      const cookieValue = readCookie(SIDEBAR_COOKIE_NAME);
+      if (cookieValue === "true") return true;
+      if (cookieValue === "false") return false;
+      return parseBool(pp.props.defaultOpen, true);
+    };
+
+    const rootRef = pp.ref();
+    const mediaQueryRef = pp.ref(null);
+    const controlledOpen = normalizeSentinel(pp.props.open);
+    const isControlled = controlledOpen !== undefined;
+    const [internalOpen, setInternalOpen] = pp.state(getInitialOpen());
+    const [openMobile, setOpenMobile] = pp.state(false);
+    const [isMobile, setIsMobile] = pp.state(
+      typeof window !== "undefined" && typeof window.matchMedia === "function"
+        ? window.matchMedia(SIDEBAR_MEDIA_QUERY).matches
+        : false,
+    );
+
+    const open = isControlled ? parseBool(controlledOpen, true) : internalOpen;
+    const state = open ? "expanded" : "collapsed";
+
+    const openRef = pp.ref(open);
+    const stateRef = pp.ref(state);
+    const mobileRef = pp.ref(isMobile);
+    const mobileOpenRef = pp.ref(openMobile);
+    const controlledRef = pp.ref(isControlled);
+    const onOpenChangeRef = pp.ref(pp.props.onOpenChange);
+
+    const writeCookie = (nextOpen) => {
+      if (typeof document === "undefined") return;
+      document.cookie = `${SIDEBAR_COOKIE_NAME}=${nextOpen}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+    };
+
+    const syncDom = () => {
+      const root = rootRef.current;
+      if (!(root instanceof HTMLElement)) return;
+
+      root.dataset.state = stateRef.current;
+      root.dataset.open = openRef.current ? "true" : "false";
+      root.dataset.mobile = mobileRef.current ? "true" : "false";
+      root.dataset.mobileOpen = mobileOpenRef.current ? "true" : "false";
+
+      root.querySelectorAll("[data-slot='sidebar']").forEach((node) => {
+        if (!(node instanceof HTMLElement)) return;
+
+        const collapsibleMode = (node.getAttribute("data-collapsible-mode") || "offcanvas").trim();
+        const collapsibleValue =
+          stateRef.current === "collapsed" && collapsibleMode !== "none"
+            ? collapsibleMode
+            : "";
+
+        node.dataset.state = stateRef.current;
+        node.dataset.open = openRef.current ? "true" : "false";
+        node.dataset.mobile = mobileRef.current ? "true" : "false";
+        node.dataset.mobileOpen = mobileOpenRef.current ? "true" : "false";
+        node.dataset.collapsible = collapsibleValue;
+      });
+
+      const shouldShowTooltip = !mobileRef.current && stateRef.current === "collapsed";
+      root.querySelectorAll("[data-slot='sidebar-menu-button'][data-tooltip-content]").forEach((node) => {
+        if (!(node instanceof HTMLElement)) return;
+
+        const tooltip = node.getAttribute("data-tooltip-content") || "";
+        if (shouldShowTooltip && tooltip) {
+          node.setAttribute("title", tooltip);
+        } else {
+          node.removeAttribute("title");
+        }
+      });
+
+      if (typeof document !== "undefined") {
+        document.body.style.overflow = mobileRef.current && mobileOpenRef.current ? "hidden" : "";
+      }
+    };
+
+    const updateDesktopOpen = (valueOrUpdater) => {
+      const nextOpen =
+        typeof valueOrUpdater === "function"
+          ? valueOrUpdater(openRef.current)
+          : valueOrUpdater;
+
+      if (controlledRef.current) {
+        if (typeof onOpenChangeRef.current === "function") {
+          onOpenChangeRef.current(nextOpen);
+        }
+      } else {
+        setInternalOpen(nextOpen);
+      }
+
+      writeCookie(nextOpen);
+    };
+
+    const toggleSidebar = () => {
+      if (mobileRef.current) {
+        setOpenMobile((previous) => !previous);
+        return;
+      }
+
+      updateDesktopOpen((previous) => !previous);
+    };
+
+    pp.layoutEffect(() => {
+      openRef.current = open;
+      stateRef.current = state;
+      mobileRef.current = isMobile;
+      mobileOpenRef.current = openMobile;
+      controlledRef.current = isControlled;
+      onOpenChangeRef.current = pp.props.onOpenChange;
+      syncDom();
+    }, [open, state, isMobile, openMobile, isControlled, pp.props.onOpenChange]);
+
+    pp.effect(() => {
+      if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+        return undefined;
+      }
+
+      const mediaQuery = window.matchMedia(SIDEBAR_MEDIA_QUERY);
+      mediaQueryRef.current = mediaQuery;
+
+      const onMediaChange = (event) => {
+        setIsMobile(event.matches);
+        if (!event.matches) {
+          setOpenMobile(false);
+        }
+      };
+
+      setIsMobile(mediaQuery.matches);
+
+      if (typeof mediaQuery.addEventListener === "function") {
+        mediaQuery.addEventListener("change", onMediaChange);
+        return () => mediaQuery.removeEventListener("change", onMediaChange);
+      }
+
+      mediaQuery.addListener(onMediaChange);
+      return () => mediaQuery.removeListener(onMediaChange);
+    }, []);
+
+    pp.effect(() => {
+      const root = rootRef.current;
+      if (!(root instanceof HTMLElement)) return;
+
+      const onClick = (event) => {
+        const target = event.target instanceof Node ? event.target : null;
+        const element = target instanceof Element
+          ? target.closest("[data-sidebar='trigger'], [data-sidebar='rail'], [data-sidebar='mobile-overlay'], [data-sidebar='mobile-close']")
+          : null;
+
+        if (!(element instanceof HTMLElement) || !root.contains(element)) {
+          return;
+        }
+
+        if (element.matches("[data-sidebar='mobile-overlay'], [data-sidebar='mobile-close']")) {
+          event.preventDefault();
+          setOpenMobile(false);
+          return;
+        }
+
+        if (element.matches("[data-sidebar='trigger'], [data-sidebar='rail']")) {
+          event.preventDefault();
+          toggleSidebar();
+        }
+      };
+
+      const onToggle = (event) => {
+        event.stopPropagation();
+        toggleSidebar();
+      };
+
+      const onOpenChange = (event) => {
+        if (!(event instanceof CustomEvent)) return;
+        event.stopPropagation();
+
+        const detail = event.detail || {};
+        const nextOpen = parseBool(detail.open, true);
+
+        if (detail.mobile) {
+          setOpenMobile(nextOpen);
+        } else {
+          updateDesktopOpen(nextOpen);
+        }
+      };
+
+      const onKeyDown = (event) => {
+        const key = typeof event.key === "string" ? event.key.toLowerCase() : "";
+
+        if (key === SIDEBAR_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
+          event.preventDefault();
+          toggleSidebar();
+          return;
+        }
+
+        if (event.key === "Escape" && mobileOpenRef.current) {
+          event.preventDefault();
+          setOpenMobile(false);
+        }
+      };
+
+      root.addEventListener("click", onClick);
+      root.addEventListener("sidebar-toggle", onToggle);
+      root.addEventListener("sidebar-open-change", onOpenChange);
+      window.addEventListener("keydown", onKeyDown);
+
+      return () => {
+        root.removeEventListener("click", onClick);
+        root.removeEventListener("sidebar-toggle", onToggle);
+        root.removeEventListener("sidebar-open-change", onOpenChange);
+        window.removeEventListener("keydown", onKeyDown);
+        if (typeof document !== "undefined") {
+          document.body.style.overflow = "";
+        }
+      };
+    }, []);
+  </script>
+</div>

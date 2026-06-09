@@ -298,6 +298,320 @@
     ]
   },
   {
+    "componentName": "SidebarProvider",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "defaultOpen",
+        "type": "bool | str",
+        "hasDefault": true,
+        "defaultValue": "True"
+      },
+      {
+        "name": "open",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "onOpenChange",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      }
+    ]
+  },
+  {
+    "componentName": "Sidebar",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "side",
+        "type": "SidebarSide | str",
+        "hasDefault": true,
+        "defaultValue": "left"
+      },
+      {
+        "name": "variant",
+        "type": "SidebarVariant | str",
+        "hasDefault": true,
+        "defaultValue": "sidebar"
+      },
+      {
+        "name": "collapsible",
+        "type": "SidebarCollapsible | str",
+        "hasDefault": true,
+        "defaultValue": "offcanvas"
+      }
+    ]
+  },
+  {
+    "componentName": "SidebarTrigger",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "SidebarRail",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "SidebarInset",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "SidebarInput",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "SidebarHeader",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "SidebarFooter",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "SidebarSeparator",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "SidebarContent",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "SidebarGroup",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "SidebarGroupLabel",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "asChild",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "SidebarGroupAction",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "asChild",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "SidebarGroupContent",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "SidebarMenu",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "SidebarMenuItem",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "SidebarMenuButton",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "asChild",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      },
+      {
+        "name": "isActive",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      },
+      {
+        "name": "variant",
+        "type": "SidebarMenuButtonVariant | str",
+        "hasDefault": true,
+        "defaultValue": "default"
+      },
+      {
+        "name": "size",
+        "type": "SidebarMenuButtonSize | str",
+        "hasDefault": true,
+        "defaultValue": "default"
+      },
+      {
+        "name": "tooltip",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      }
+    ]
+  },
+  {
+    "componentName": "SidebarMenuAction",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "asChild",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      },
+      {
+        "name": "showOnHover",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "SidebarMenuBadge",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "SidebarMenuSkeleton",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "showIcon",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "SidebarMenuSub",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "SidebarMenuSubItem",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "SidebarMenuSubButton",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Sidebar.py",
+    "relativePath": "src/lib/maddex/Sidebar.py",
+    "importRoute": "src.lib.maddex.Sidebar",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "asChild",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      },
+      {
+        "name": "size",
+        "type": "SidebarMenuSubButtonSize | str",
+        "hasDefault": true,
+        "defaultValue": "md"
+      },
+      {
+        "name": "isActive",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "Skeleton",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Skeleton.py",
+    "relativePath": "src/lib/maddex/Skeleton.py",
+    "importRoute": "src.lib.maddex.Skeleton",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
     "componentName": "Slot",
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Slot.py",
     "relativePath": "src/lib/maddex/Slot.py",

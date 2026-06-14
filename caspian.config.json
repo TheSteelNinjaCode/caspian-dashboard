@@ -8,6 +8,7 @@
   "backendOnly": false,
   "tailwindcss": true,
   "mcp": false,
+  "websocket": false,
   "prisma": true,
   "typescript": false,
   "version": "0.1.6",

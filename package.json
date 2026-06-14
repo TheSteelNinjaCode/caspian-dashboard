@@ -31,7 +31,7 @@
     "@types/prompts": "^2.4.9",
     "better-sqlite3": "^12.9.0",
     "browser-sync": "^3.0.4",
-    "caspian-utils": "^0.1.2",
+    "caspian-utils": "^0.1.4",
     "chalk": "^5.6.2",
     "cssnano": "^8.0.1",
     "http-proxy-middleware": "^4.0.0",

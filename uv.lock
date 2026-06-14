@@ -92,7 +92,7 @@ wheels = [
 
 [[package]]
 name = "caspian-utils"
-version = "0.3.2"
+version = "0.3.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beautifulsoup4" },
@@ -104,9 +104,9 @@ dependencies = [
     { name = "python-ulid" },
     { name = "slowapi" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b2/23/b5193585b4368ca06e21416441e17e77b712389f257cdf77f453fb403703/caspian_utils-0.3.2.tar.gz", hash = "sha256:e94c73cfcfe17104dc3af2aa5fc3965f585c2990e558a0ee781a2ac4e509e6cb", size = 49914, upload-time = "2026-06-02T20:21:21.126Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/aa/34/bc9d0fcd51be4871742910cd1a716e0c7c5669a4214e705de7f56775e7ba/caspian_utils-0.3.3.tar.gz", hash = "sha256:96994e1a966ec6301a5193a5e7967efe2abc3de25c283cae541c653004c6d88a", size = 49898, upload-time = "2026-06-10T06:38:42.188Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/db/24/d1f28c2d76694b6a7db5fa685fc7be85d67519ff37a8b842541e0b3b2204/caspian_utils-0.3.2-py3-none-any.whl", hash = "sha256:7ccc35c4b31eb0bbad20963033081352870785d5f88ce2284eeb531cf48560f8", size = 51623, upload-time = "2026-06-02T20:21:20.084Z" },
+    { url = "https://files.pythonhosted.org/packages/31/24/b6ed230dee4b329f8601e3300ea10da0a4a120113fe193212f304c75fa83/caspian_utils-0.3.3-py3-none-any.whl", hash = "sha256:504a9e0bfd3cc1f7dcf5c7a502678948d2092b044bc5199890f5f293fbbb4925", size = 51661, upload-time = "2026-06-10T06:38:41.204Z" },
 ]
 
 [[package]]

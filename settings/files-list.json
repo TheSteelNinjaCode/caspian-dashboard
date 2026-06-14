@@ -5,6 +5,7 @@
   "./src/app/dashboard/layout.html",
   "./src/app/dashboard/profile/index.html",
   "./src/app/dashboard/profile/index.py",
+  "./src/app/dashboard/users/index.html",
   "./src/app/error.html",
   "./src/app/globals.css",
   "./src/app/index.html",

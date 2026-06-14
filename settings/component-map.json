@@ -1,5 +1,13 @@
 [
   {
+    "componentName": "CreateUpdateDialog",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\components\\dashboard\\users\\CreateUpdateDialog.py",
+    "relativePath": "src/components/dashboard/users/CreateUpdateDialog.py",
+    "importRoute": "src.components.dashboard.users.CreateUpdateDialog",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
     "componentName": "Button",
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Button.py",
     "relativePath": "src/lib/maddex/Button.py",
@@ -1015,6 +1023,14 @@
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\ppicons\\Search.py",
     "relativePath": "src/lib/ppicons/Search.py",
     "importRoute": "src.lib.ppicons.Search",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "Users",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\ppicons\\Users.py",
+    "relativePath": "src/lib/ppicons/Users.py",
+    "importRoute": "src.lib.ppicons.Users",
     "acceptsArbitraryProps": true,
     "props": []
   },

@@ -1,7 +1,8 @@
-<!-- @import { Button } from ../../lib/maddex -->
-<!-- @import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from ../../lib/maddex/DropdownMenu.py -->
-<!-- @import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarSeparator, SidebarInset, SidebarTrigger } from ../../lib/maddex/Sidebar.py -->
-<!-- @import { PanelLeft, Search, ChevronRight, Calendar, Circle, Check, Minus, Ellipsis } from ../../lib/ppicons -->
+<!-- @import { Button, DropdownMenu, Sidebar } from ../../lib/maddex -->
+<!-- @import { Calendar, Check, ChevronRight, Circle, Ellipsis, Minus, PanelLeft, Search, Users } from ../../lib/ppicons -->
+<!-- @import { DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from ../../lib/maddex/DropdownMenu.py -->
+<!-- @import { SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarSeparator, SidebarTrigger } from ../../lib/maddex/Sidebar.py -->
+
 
 <div class="min-h-screen bg-muted/30 text-foreground">
   <x-sidebar-provider defaultOpen="False" style="--sidebar-width-icon: 3.75rem;">
@@ -65,6 +66,15 @@
                 </x-sidebar-menu-button>
               </x-sidebar-menu-item>
 
+              <x-sidebar-menu-item>
+                <x-sidebar-menu-button
+                  tooltip="Users"
+                  class="group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
+                >
+                  <x-users class="size-4" />
+                  <span>Users</span>
+                </x-sidebar-menu-button>
+              </x-sidebar-menu-item>
               <x-sidebar-menu-item>
                 <x-sidebar-menu-button
                   tooltip="Settings"

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 6,
-  "generatedAt": "2026-06-09T05:04:12.099Z",
+  "generatedAt": "2026-06-14T23:35:02.280Z",
   "project": {
     "type": "caspian",
     "framework": "caspian",
@@ -113,6 +113,11 @@
       "name": "search",
       "componentName": "Search",
       "file": "src/lib/ppicons/Search.py"
+    },
+    {
+      "name": "users",
+      "componentName": "Users",
+      "file": "src/lib/ppicons/Users.py"
     },
     {
       "name": "x",

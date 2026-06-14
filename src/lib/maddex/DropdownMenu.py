@@ -1,4 +1,3 @@
-from .utils import pop_prop_alias, parse_bool
 from typing import Literal, Optional
 
 from casp.component_decorator import component, render_html
@@ -137,7 +136,7 @@ def DropdownMenuTrigger(asChild: bool | str | None = False, **props) -> str:
 @component
 def DropdownMenuContent(
     side: DropdownMenuSide | str = "bottom",
-    align: DropdownMenuAlign | str = "end",
+    align: DropdownMenuAlign | str = "center",
     sideOffset: int | str = 4,
     **props,
 ) -> str:
@@ -145,7 +144,7 @@ def DropdownMenuContent(
         side, {"top", "right", "bottom", "left"}, "bottom"
     )
     normalized_align = _normalize_choice(
-        align, {"start", "center", "end"}, "end"
+        align, {"start", "center", "end"}, "center"
     )
 
     try:
@@ -226,19 +225,20 @@ def DropdownMenuItem(
 ) -> str:
     incoming_class = props.pop("class", "")
     children = props.pop("children", "")
-    as_child = parse_bool(pop_prop_alias(props, "asChild", asChild))
+    as_child = props.pop("asChild", asChild) in (True, "true", "")
     is_disabled = _parse_bool(props.pop("disabled", disabled))
 
     attributes = {
         "data-slot": "dropdown-menu-item",
         "role": "menuitem",
         "class": merge_classes(
-            "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+            "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground data-[highlighted=true]:bg-accent data-[highlighted=true]:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
             "pl-8" if inset else "",
             incoming_class,
         ),
         "data-disabled": str(is_disabled).lower(),
         "data-menu-close-on-select": "true",
+        "data-highlighted": "false",
         "tabindex": "-1",
     }
 
@@ -256,6 +256,7 @@ def DropdownMenuItem(
 @component
 def DropdownMenuCheckboxItem(
     checked: bool | str = False,
+    onCheckedChange: Optional[str] = None,
     disabled: bool | str | None = False,
     **props,
 ) -> str:
@@ -276,23 +277,39 @@ def DropdownMenuCheckboxItem(
             "data-slot": "dropdown-menu-checkbox-item",
             "role": "menuitemcheckbox",
             "class": merge_classes(
-                "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50",
+                "relative flex cursor-default select-none items-center gap-2 rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground data-[highlighted=true]:bg-accent data-[highlighted=true]:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
                 incoming_class,
             ),
             "data-disabled": str(is_disabled).lower(),
-            "data-menu-keep-open": "true",
+            "data-menu-keep-open": "false",
             "data-checked": str(is_checked).lower(),
+            "data-highlighted": "false",
             "aria-checked": str(is_checked).lower(),
             "tabindex": "-1",
         },
         props,
     )
 
-    return f"<div {attrs}>{indicator_html}{children}</div>"
+    return render_html(
+        "DropdownMenuCheckboxItem.html",
+        {
+            "attributes": attrs,
+            "children": children,
+            "indicator": Markup(indicator_html),
+            "checked": is_checked,
+            "rawChecked": checked,
+            "disabled": is_disabled,
+            "onCheckedChange": onCheckedChange,
+        },
+    )
 
 
 @component
-def DropdownMenuRadioGroup(value: Optional[str] = None, **props) -> str:
+def DropdownMenuRadioGroup(
+    value: Optional[str] = None,
+    onValueChange: Optional[str] = None,
+    **props,
+) -> str:
     incoming_class = props.pop("class", "")
     children = props.pop("children", "")
 
@@ -300,13 +317,21 @@ def DropdownMenuRadioGroup(value: Optional[str] = None, **props) -> str:
         {
             "data-slot": "dropdown-menu-radio-group",
             "class": merge_classes("", incoming_class),
+            "value": value or "",
+            "on-value-change": onValueChange,
             "data-value": value or "",
             "role": "group",
         },
         props,
     )
 
-    return f"<div {attrs}>{children}</div>"
+    return render_html(
+        "DropdownMenuRadioGroup.html",
+        {
+            "attributes": attrs,
+            "children": children,
+        },
+    )
 
 
 @component
@@ -332,13 +357,14 @@ def DropdownMenuRadioItem(
             "data-slot": "dropdown-menu-radio-item",
             "role": "menuitemradio",
             "class": merge_classes(
-                "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50",
+                "relative flex cursor-default select-none items-center gap-2 rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground data-[highlighted=true]:bg-accent data-[highlighted=true]:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
                 incoming_class,
             ),
             "data-disabled": str(is_disabled).lower(),
-            "data-menu-keep-open": "true",
+            "data-menu-keep-open": "false",
             "data-value": value,
             "data-checked": str(is_checked).lower(),
+            "data-highlighted": "false",
             "aria-checked": str(is_checked).lower(),
             "tabindex": "-1",
         },
@@ -409,7 +435,7 @@ def DropdownMenuSub(**props) -> str:
     attrs = get_attributes(
         {
             "data-slot": "dropdown-menu-sub",
-            "class": merge_classes("relative flex flex-col group/sub", incoming_class),
+            "class": merge_classes("relative flex flex-col", incoming_class),
             "role": "none",
         },
         props,
@@ -433,10 +459,11 @@ def DropdownMenuSubTrigger(inset: bool = False, **props) -> str:
             "data-menu-keep-open": "true",
             "tabindex": "-1",
             "class": merge_classes(
-                "flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+                "flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground data-[highlighted=true]:bg-accent data-[highlighted=true]:text-accent-foreground data-[state=open]:bg-accent [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
                 "pl-8" if inset else "",
                 incoming_class,
             ),
+            "data-highlighted": "false",
         },
         props,
     )
@@ -448,7 +475,17 @@ def DropdownMenuSubTrigger(inset: bool = False, **props) -> str:
 
 
 @component
-def DropdownMenuSubContent(**props) -> str:
+def DropdownMenuSubContent(
+    side: DropdownMenuSide | str = "right",
+    align: DropdownMenuAlign | str = "start",
+    **props,
+) -> str:
+    normalized_side = _normalize_choice(
+        side, {"top", "right", "bottom", "left"}, "right"
+    )
+    normalized_align = _normalize_choice(
+        align, {"start", "center", "end"}, "start"
+    )
     incoming_class = props.pop("class", "")
     children = props.pop("children", "")
 
@@ -456,8 +493,13 @@ def DropdownMenuSubContent(**props) -> str:
         {
             "data-slot": "dropdown-menu-sub-content",
             "role": "menu",
+            "data-state": "closed",
+            "aria-hidden": "true",
+            "hidden": "true",
+            "data-side": normalized_side,
+            "data-align": normalized_align,
             "class": merge_classes(
-                "hidden absolute left-full top-0 z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md group-hover/sub:block group-focus-within/sub:block",
+                "fixed z-[60] min-w-[8rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-lg outline-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=right]:data-[state=open]:slide-in-from-left-2 data-[side=right]:data-[state=closed]:slide-out-to-left-2 data-[side=left]:data-[state=open]:slide-in-from-right-2 data-[side=left]:data-[state=closed]:slide-out-to-right-2",
                 incoming_class,
             ),
         },

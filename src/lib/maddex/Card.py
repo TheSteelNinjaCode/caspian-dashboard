@@ -43,7 +43,7 @@ def Card(size: CardSize | str = "default", **props):
 def CardHeader(**props):
     incoming_class = props.pop("class", "")
     computed_class = merge_classes(
-        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6 group-data-[size=sm]/card:gap-1 group-data-[size=sm]/card:px-4",
+        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6 group-data-[size=sm]/card:gap-1 group-data-[size=sm]/card:px-4",
         incoming_class,
     )
 

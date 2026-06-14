@@ -27,9 +27,11 @@
         "defaultValue": "default",
         "options": [
           "default",
+          "xs",
           "sm",
           "lg",
           "icon",
+          "icon-xs",
           "icon-sm",
           "icon-lg"
         ]
@@ -176,7 +178,7 @@
         "name": "align",
         "type": "DropdownMenuAlign | str",
         "hasDefault": true,
-        "defaultValue": "end"
+        "defaultValue": "center"
       },
       {
         "name": "sideOffset",
@@ -242,6 +244,12 @@
         "defaultValue": "False"
       },
       {
+        "name": "onCheckedChange",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
         "name": "disabled",
         "type": "bool | str | None",
         "hasDefault": true,
@@ -258,6 +266,12 @@
     "props": [
       {
         "name": "value",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "onValueChange",
         "type": "Optional[str]",
         "hasDefault": true,
         "defaultValue": "None"
@@ -350,7 +364,20 @@
     "relativePath": "src/lib/maddex/DropdownMenu.py",
     "importRoute": "src.lib.maddex.DropdownMenu",
     "acceptsArbitraryProps": true,
-    "props": []
+    "props": [
+      {
+        "name": "side",
+        "type": "DropdownMenuSide | str",
+        "hasDefault": true,
+        "defaultValue": "right"
+      },
+      {
+        "name": "align",
+        "type": "DropdownMenuAlign | str",
+        "hasDefault": true,
+        "defaultValue": "start"
+      }
+    ]
   },
   {
     "componentName": "FieldSet",

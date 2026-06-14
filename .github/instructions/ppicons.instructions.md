@@ -15,7 +15,7 @@ This project uses `ppicons` to generate reusable icon components.
 - Manifest file: ppicons.json
 - Components directory: src/lib/ppicons
 - Icons directory: src/lib/ppicons
-- Installed icon count: 19
+- Installed icon count: 24
 - Full installed icon inventory: `ppicons.json`
 
 ## Installing Icons

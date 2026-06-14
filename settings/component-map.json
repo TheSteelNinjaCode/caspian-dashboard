@@ -939,6 +939,14 @@
     "props": []
   },
   {
+    "componentName": "ChartColumn",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\ppicons\\ChartColumn.py",
+    "relativePath": "src/lib/ppicons/ChartColumn.py",
+    "importRoute": "src.lib.ppicons.ChartColumn",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
     "componentName": "Check",
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\ppicons\\Check.py",
     "relativePath": "src/lib/ppicons/Check.py",
@@ -1003,6 +1011,14 @@
     "props": []
   },
   {
+    "componentName": "House",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\ppicons\\House.py",
+    "relativePath": "src/lib/ppicons/House.py",
+    "importRoute": "src.lib.ppicons.House",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
     "componentName": "Minus",
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\ppicons\\Minus.py",
     "relativePath": "src/lib/ppicons/Minus.py",
@@ -1043,10 +1059,34 @@
     "props": []
   },
   {
+    "componentName": "Settings",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\ppicons\\Settings.py",
+    "relativePath": "src/lib/ppicons/Settings.py",
+    "importRoute": "src.lib.ppicons.Settings",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "ShoppingBag",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\ppicons\\ShoppingBag.py",
+    "relativePath": "src/lib/ppicons/ShoppingBag.py",
+    "importRoute": "src.lib.ppicons.ShoppingBag",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
     "componentName": "Trash2",
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\ppicons\\Trash2.py",
     "relativePath": "src/lib/ppicons/Trash2.py",
     "importRoute": "src.lib.ppicons.Trash2",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "UserRound",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\ppicons\\UserRound.py",
+    "relativePath": "src/lib/ppicons/UserRound.py",
+    "importRoute": "src.lib.ppicons.UserRound",
     "acceptsArbitraryProps": true,
     "props": []
   },

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 6,
-  "generatedAt": "2026-06-14T23:42:49.545Z",
+  "generatedAt": "2026-06-14T23:57:53.926Z",
   "project": {
     "type": "caspian",
     "framework": "caspian",
@@ -60,6 +60,11 @@
       "file": "src/lib/ppicons/Calendar.py"
     },
     {
+      "name": "chart-column",
+      "componentName": "ChartColumn",
+      "file": "src/lib/ppicons/ChartColumn.py"
+    },
+    {
       "name": "check",
       "componentName": "Check",
       "file": "src/lib/ppicons/Check.py"
@@ -100,6 +105,11 @@
       "file": "src/lib/ppicons/Ellipsis.py"
     },
     {
+      "name": "house",
+      "componentName": "House",
+      "file": "src/lib/ppicons/House.py"
+    },
+    {
       "name": "minus",
       "componentName": "Minus",
       "file": "src/lib/ppicons/Minus.py"
@@ -125,9 +135,24 @@
       "file": "src/lib/ppicons/Search.py"
     },
     {
+      "name": "settings",
+      "componentName": "Settings",
+      "file": "src/lib/ppicons/Settings.py"
+    },
+    {
+      "name": "shopping-bag",
+      "componentName": "ShoppingBag",
+      "file": "src/lib/ppicons/ShoppingBag.py"
+    },
+    {
       "name": "trash2",
       "componentName": "Trash2",
       "file": "src/lib/ppicons/Trash2.py"
+    },
+    {
+      "name": "user-round",
+      "componentName": "UserRound",
+      "file": "src/lib/ppicons/UserRound.py"
     },
     {
       "name": "users",

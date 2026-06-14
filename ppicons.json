@@ -1,6 +1,6 @@
 {
   "schemaVersion": 6,
-  "generatedAt": "2026-06-14T23:35:02.280Z",
+  "generatedAt": "2026-06-14T23:42:49.545Z",
   "project": {
     "type": "caspian",
     "framework": "caspian",
@@ -110,9 +110,24 @@
       "file": "src/lib/ppicons/PanelLeft.py"
     },
     {
+      "name": "pencil",
+      "componentName": "Pencil",
+      "file": "src/lib/ppicons/Pencil.py"
+    },
+    {
+      "name": "plus",
+      "componentName": "Plus",
+      "file": "src/lib/ppicons/Plus.py"
+    },
+    {
       "name": "search",
       "componentName": "Search",
       "file": "src/lib/ppicons/Search.py"
+    },
+    {
+      "name": "trash2",
+      "componentName": "Trash2",
+      "file": "src/lib/ppicons/Trash2.py"
     },
     {
       "name": "users",

@@ -27,12 +27,15 @@
             <x-sidebar-menu>
               <x-sidebar-menu-item>
                 <x-sidebar-menu-button
-                  isActive="True"
+                  asChild="True"
+                  isActive="{{ 'True' if layout.is_overview else 'False' }}"
                   tooltip="Overview"
                   class="group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
                 >
-                  <x-circle class="size-4" />
-                  <span>Overview</span>
+                  <a href="/dashboard">
+                    <x-circle class="size-4" />
+                    <span>Overview</span>
+                  </a>
                 </x-sidebar-menu-button>
               </x-sidebar-menu-item>
 
@@ -68,11 +71,15 @@
 
               <x-sidebar-menu-item>
                 <x-sidebar-menu-button
+                  asChild="True"
+                  isActive="{{ 'True' if layout.is_users else 'False' }}"
                   tooltip="Users"
                   class="group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"
                 >
-                  <x-users class="size-4" />
-                  <span>Users</span>
+                  <a href="/dashboard/users">
+                    <x-users class="size-4" />
+                    <span>Users</span>
+                  </a>
                 </x-sidebar-menu-button>
               </x-sidebar-menu-item>
               <x-sidebar-menu-item>
@@ -118,7 +125,7 @@
               <p class="truncate text-xs text-muted-foreground">{{ auth.user.userRole.name if auth and auth.user and auth.user.userRole else "Not signed in" }}</p>
             </x-dropdown-menu-label>
             <x-dropdown-menu-separator />
-            <x-dropdown-menu-item onclick="{pp.navigateTo('/dashboard/profile')}">Profile</x-dropdown-menu-item>
+            <x-dropdown-menu-item onclick="{pp.redirect('/dashboard/profile')}">Profile</x-dropdown-menu-item>
             <x-dropdown-menu-item onclick="{pp.rpc('signout')}">Sign out</x-dropdown-menu-item>
           </x-dropdown-menu-content>
         </x-dropdown-menu>
@@ -132,9 +139,9 @@
             <x-sidebar-trigger />
 
             <nav class="flex items-center gap-2 text-sm text-muted-foreground" aria-label="Breadcrumb">
-              <a href="." class="hover:text-foreground">Dashboard</a>
+              <a href="/dashboard" class="hover:text-foreground">Dashboard</a>
               <x-chevron-right class="size-3" />
-              <span class="font-medium text-foreground">Overview</span>
+              <span class="font-medium text-foreground">{{ layout.current_section }}</span>
             </nav>
           </div>
 

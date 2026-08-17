@@ -89,7 +89,14 @@
     "relativePath": "src/components/dashboard/users/CreateUpdateDialog.py",
     "importRoute": "src.components.dashboard.users.CreateUpdateDialog",
     "acceptsArbitraryProps": true,
-    "props": []
+    "props": [
+      {
+        "name": "mode",
+        "type": "str",
+        "hasDefault": true,
+        "defaultValue": "user"
+      }
+    ]
   },
   {
     "componentName": "UsersPagination",
@@ -263,6 +270,137 @@
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Card.py",
     "relativePath": "src/lib/maddex/Card.py",
     "importRoute": "src.lib.maddex.Card",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "Dialog",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Dialog.py",
+    "relativePath": "src/lib/maddex/Dialog.py",
+    "importRoute": "src.lib.maddex.Dialog",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "open",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "onOpenChange",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "closeOnOverlayClick",
+        "type": "bool | str",
+        "hasDefault": true,
+        "defaultValue": "True"
+      },
+      {
+        "name": "resetOnOpen",
+        "type": "bool | str",
+        "hasDefault": true,
+        "defaultValue": "False"
+      },
+      {
+        "name": "id",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      }
+    ]
+  },
+  {
+    "componentName": "DialogTrigger",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Dialog.py",
+    "relativePath": "src/lib/maddex/Dialog.py",
+    "importRoute": "src.lib.maddex.Dialog",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "asChild",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "DialogClose",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Dialog.py",
+    "relativePath": "src/lib/maddex/Dialog.py",
+    "importRoute": "src.lib.maddex.Dialog",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "asChild",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "DialogOverlay",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Dialog.py",
+    "relativePath": "src/lib/maddex/Dialog.py",
+    "importRoute": "src.lib.maddex.Dialog",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "DialogContent",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Dialog.py",
+    "relativePath": "src/lib/maddex/Dialog.py",
+    "importRoute": "src.lib.maddex.Dialog",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "showCloseButton",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "True"
+      }
+    ]
+  },
+  {
+    "componentName": "DialogHeader",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Dialog.py",
+    "relativePath": "src/lib/maddex/Dialog.py",
+    "importRoute": "src.lib.maddex.Dialog",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "DialogFooter",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Dialog.py",
+    "relativePath": "src/lib/maddex/Dialog.py",
+    "importRoute": "src.lib.maddex.Dialog",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "showCloseButton",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "DialogTitle",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Dialog.py",
+    "relativePath": "src/lib/maddex/Dialog.py",
+    "importRoute": "src.lib.maddex.Dialog",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "DialogDescription",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\Dialog.py",
+    "relativePath": "src/lib/maddex/Dialog.py",
+    "importRoute": "src.lib.maddex.Dialog",
     "acceptsArbitraryProps": true,
     "props": []
   },

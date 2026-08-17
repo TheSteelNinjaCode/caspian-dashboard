@@ -1,6 +1,8 @@
 from casp.component_decorator import component, html
 
+from src.components.dashboard.users.CreateUpdateDialog import CreateUpdateDialog
 from src.lib.maddex.Button import Button
+from src.lib.maddex.Dialog import Dialog, DialogContent, DialogTrigger
 from src.lib.maddex.Input import Input
 from src.lib.ppicons import Plus, Search
 
@@ -16,7 +18,16 @@ def UsersToolbar(search_term: str):
       <x-search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
       <x-input type="search" name="q" value="{{ search_term }}" placeholder="Search users..." class="w-full rounded-xl pl-9" oninput="queueSearch(event.target.value)" />
     </label>
-    <x-button type="button" size="icon" class="shrink-0 rounded-xl bg-zinc-900 text-white shadow-sm hover:bg-zinc-800" aria-label="Add user"><x-plus /></x-button>
+
+    <x-dialog>
+      <x-dialog-trigger as-child>
+        <x-button type="button" size="icon" class="shrink-0 rounded-xl bg-zinc-900 text-white shadow-sm hover:bg-zinc-800" aria-label="Add user"><x-plus /></x-button>
+      </x-dialog-trigger>
+
+      <x-dialog-content class="sm:max-w-lg">
+        <x-create-update-dialog mode="user" />
+      </x-dialog-content>
+    </x-dialog>
   </div>
 </header>
 """,

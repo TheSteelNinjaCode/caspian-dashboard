@@ -549,7 +549,6 @@ Use real Python imports in the rendering module to make Maddex component tags av
 - Keep application composition and RPC logic in app-owned Python modules; generated Maddex modules are registry-managed and should be refreshed through the CLI.
 - This guidance is intentionally stable. Component changes update only `maddex.json`.
 <!-- maddex:end -->
-
 <!-- ppicons:start -->
 # PPIcons AI Context
 

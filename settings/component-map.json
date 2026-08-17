@@ -91,10 +91,10 @@
     "acceptsArbitraryProps": true,
     "props": [
       {
-        "name": "mode",
-        "type": "str",
+        "name": "selectedItem",
+        "type": "str | None",
         "hasDefault": true,
-        "defaultValue": "user"
+        "defaultValue": "None"
       }
     ]
   },

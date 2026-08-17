@@ -48,10 +48,6 @@ def SigninPanel():
             <x-button type="submit" disabled="{loading}">
               {loading ? "Loading..." : "Login"}
             </x-button>
-            <a href="/api/auth/signin/google"
-               class="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium shadow-xs hover:bg-accent hover:text-accent-foreground">
-              Login with Google
-            </a>
             <x-field-description class="text-center">
               Don't have an account? <a href="#">Sign up</a>
             </x-field-description>

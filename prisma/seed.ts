@@ -156,7 +156,6 @@ async function main(): Promise<void> {
   try {
     console.log(`Start seeding...`);
     console.log(`Detected provider: ${provider}`);
-    console.log(`DATABASE_URL: ${databaseUrl}`);
 
     if (provider === "sqlite") {
       await resetSqlite(prisma);

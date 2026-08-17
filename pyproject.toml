@@ -1,37 +1,69 @@
 [project]
-name = "my-app"
+name = "caspian-app"
 version = "1.0.0"
 requires-python = ">=3.14"
 dependencies = [
-    "aiomysql==0.3.2",
-    "aiosqlite==0.22.1",
-    "asyncpg==0.31.0",
-    "beautifulsoup4==4.14.3",
-    "caspian-utils~=0.3",
+    "beautifulsoup4==4.15.0",
+    "caspian-utils~=0.4",
     "cuid==0.4",
     "cuid2==2.0.1",
-    "fastapi==0.136.1",
-    "httpx==0.28.1",
+    "fastapi==0.141.1",
+    "httpx2==2.10.0",
     "jinja2==3.1.6",
     "nanoid==2.0.0",
-    "psycopg2-binary==2.9.12",
     "python-dotenv==1.2.2",
-    "python-multipart==0.0.29",
-    "python-ulid==3.1.0",
-    "slowapi==0.1.9",
+    "python-multipart==0.0.32",
+    "python-ulid==4.0.1",
+    "slowapi==0.1.10",
     "starsessions==2.2.1",
-    "uvicorn==0.47.0",
+    "tzdata==2026.3",
+    "uvicorn==0.52.1",
     "werkzeug==3.1.8",
+]
+
+[dependency-groups]
+# Dev-only tooling for the app's test + static-analysis command.
+# Installed into .venv with `uv sync --group dev`; surfaced via `npm run check`.
+dev = [
+    "djlint==1.44.2",
+    "pyright==1.1.411",
+    "pytest==9.1.1",
+    "ruff==0.16.2",
 ]
 
 [tool.uv]
 package = false
 
-[tool.pyrefly]
-project-includes = ["main.py", "src/**"]
-search-path = [".", "src"]
-python-platform = "win32"
+[tool.pytest.ini_options]
+# App-level tests only. Framework code under .venv/casp is out of scope.
+testpaths = ["tests"]
+addopts = "-q"
 
-[tool.pyrefly.errors]
-bad-assignment = false
-bad-return = false
+[tool.ruff]
+# Lint the app surface only; never the framework, deps, or generated output.
+include = ["main.py", "src/**/*.py", "tests/**/*.py", "settings/*.py"]
+extend-exclude = [".venv", "node_modules"]
+line-length = 100
+
+[tool.ruff.lint]
+# Correctness-focused: pyflakes (F, e.g. undefined names, unused imports) plus
+# real pycodestyle errors/warnings (E/W). Line length (E501) is left to the
+# formatter and import ordering (I) is not enforced on the generated starter
+# code, so the linter flags actual problems rather than cosmetic churn.
+select = ["E", "F", "W"]
+ignore = ["E501"]
+
+# Report F401 but never auto-delete it: component imports are used only as
+# `<x-*>` tags in template strings that ruff can't parse, and casp resolves those
+# tags from module globals at render time (component_decorator._attach_caller_scope).
+# `--fix` stays enabled for every other rule; settings/check.py suppresses the
+# template-driven F401s so the gate fails only on genuinely dead imports.
+unfixable = ["F401"]
+
+[tool.pyright]
+include = ["main.py", "src", "settings/*.py"]
+exclude = [".venv", "node_modules", "**/__pycache__"]
+pythonPlatform = "Windows"
+typeCheckingMode = "basic"
+reportReturnType = "none"
+reportAssignmentType = "none"

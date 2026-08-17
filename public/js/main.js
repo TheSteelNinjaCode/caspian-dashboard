@@ -1,4 +1,4 @@
-import "/js/pp-reactive-v2.js";
+import "/js/pp-reactive-v2.min.js";
 import { twMerge } from "/js/tailwind-merge.mjs";
 
 const pp = (globalThis).pp;

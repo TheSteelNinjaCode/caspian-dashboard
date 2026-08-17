@@ -2,7 +2,7 @@ from src.lib.maddex.utils import pop_prop_alias
 from src.lib.maddex.utils import parse_bool
 from .Slot import Slot
 from typing import Literal
-from casp.component_decorator import component
+from casp.component_decorator import component, html
 from casp.html_attrs import merge_classes, get_attributes
 
 ButtonVariant = Literal[
@@ -33,9 +33,7 @@ def Button(
     asChild: bool | str | None = False,
     **props,
 ) -> str:
-    base_classes = (
-        "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive"
-    )
+    base_classes = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive"
 
     variants = {
         "default": "bg-primary text-primary-foreground hover:bg-primary/90",
@@ -74,14 +72,10 @@ def Button(
             "data-slot": "button",
             "class": computed_class,
         },
-        props
+        props,
     )
 
     if as_child:
-        return Slot(
-            children=children,
-            asChild=True,
-            **{"class": computed_class, **props}
-        )
+        return Slot(children=children, asChild=True, **{"class": computed_class, **props})
 
-    return f"<button {attrs}>{children}</button>"
+    return html(r"""<button {{ attrs }}>{{ children }}</button>""", attrs=attrs, children=children)

@@ -29,95 +29,36 @@ When a user asks AI to build CRUD with Maddex or Caspian, use this composition p
 <!-- maddex:start -->
 # Maddex AI Context
 
-This project uses `maddex` to generate reusable Python UI component modules.
+This project uses `maddex` to install reusable Caspian Python UI component modules.
 
-- Config file: maddex.json
-- Maddex instructions file: .github/instructions/maddex.instructions.md
-- Components directory: src/lib/maddex
-- Configured Python source path: src/lib/maddex
-- Suggested module path: src.lib.maddex
-- Tailwind CSS file: src/app/globals.css
-- Icon library: ppicons
-- Installed component count: 11
-- Installed component inventory and project metadata: `maddex.json` (under `manifest`)
+- Read `maddex.json` under the `manifest` key when you need the current installed-component inventory, configured paths, commands, registry metadata, Tailwind file, or icon library.
+- Do not duplicate that mutable inventory in agent instructions; `maddex.json` is the source of truth.
 
 ## Installing Components
 
 When a requested UI component does not exist yet, install it with `maddex` instead of hand-writing generated component modules.
 
-- Add one component: `npx maddex add <component-name>`
-- Add multiple components: `npx maddex add <component-a> <component-b>`
-- Add the full catalogue: `npx maddex add --all`
-- Refresh installed components: `npx maddex update`
+- Add one component: `npx maddex add <component-name>`.
+- Add multiple components: `npx maddex add <component-a> <component-b>`.
+- Refresh installed components: `npx maddex update`.
 
 ## Discovering Available Components
 
-Use the Maddex catalogue API to find component names before installing them.
+Use the Maddex catalogue API only when the requested component is not already listed in `maddex.json`.
 
-- Fetch all available components: `GET https://maddex.tsnc.tech/cli?component=all`
-- Fetch one component by name: `GET https://maddex.tsnc.tech/cli?component=Button`
-- The `component=all` endpoint returns a JSON array of component names.
-- The single-component endpoint may return a `files` array for multi-file components or a legacy `content` string for a single Python module.
-
-Single component response example:
-
-```json
-{
-  "name": "Button",
-  "files": [
-    {
-      "name": "Button.py",
-      "content": "class Button:\n    ...generated Python source..."
-    },
-    {
-      "name": "Button.html",
-      "content": "<button>...generated template...</button>"
-    }
-  ]
-}
-```
+- `GET https://maddex.tsnc.tech/cli?component=all` returns an array of available component names.
+- `GET https://maddex.tsnc.tech/cli?component=<component-name>` returns the requested component payload. Let the CLI process it; do not copy registry response content into app code.
 
 ## Importing and Using Components
 
-Use the installed Python module as the source for template `@import` comments, then copy the live docs example for the component you are rendering.
+Use real Python imports in the rendering module to make Maddex component tags available.
 
-- Adjust the relative `@import` path to match the current file location.
-- Maddex docs URLs use kebab-case component names such as `https://maddex.tsnc.tech/docs/button` and `https://maddex.tsnc.tech/docs/alert-dialog`.
-- For any installed component, derive the docs page as `https://maddex.tsnc.tech/docs/<component-kebab-name>`.
-
-Button example:
-
-```html
-<!-- @import { Button } from ../../../../lib/maddex/Button.py -->
-
-<div class="flex w-full flex-wrap items-center justify-center gap-3">
-  <x-button>Default</x-button>
-  <x-button variant="secondary">Secondary</x-button>
-  <x-button variant="destructive">Destructive</x-button>
-  <x-button variant="outline">Outline</x-button>
-  <x-button variant="ghost">Ghost</x-button>
-  <x-button variant="link">Link</x-button>
-</div>
-```
-
-## Installed Components
-
-- Button: `src/lib/maddex/Button.py` (docs: `https://maddex.tsnc.tech/docs/button`)
-- Card: `src/lib/maddex/Card.py` (docs: `https://maddex.tsnc.tech/docs/card`)
-- DropdownMenu: `src/lib/maddex/DropdownMenu.py` (docs: `https://maddex.tsnc.tech/docs/dropdown-menu`)
-- Field: `src/lib/maddex/Field.py` (docs: `https://maddex.tsnc.tech/docs/field`)
-- Input: `src/lib/maddex/Input.py` (docs: `https://maddex.tsnc.tech/docs/input`)
-- Portal: `src/lib/maddex/Portal.py` (docs: `https://maddex.tsnc.tech/docs/portal`)
-- Separator: `src/lib/maddex/Separator.py` (docs: `https://maddex.tsnc.tech/docs/separator`)
-- Sidebar: `src/lib/maddex/Sidebar.py` (docs: `https://maddex.tsnc.tech/docs/sidebar`)
-- Skeleton: `src/lib/maddex/Skeleton.py` (docs: `https://maddex.tsnc.tech/docs/skeleton`)
-- Slot: `src/lib/maddex/Slot.py` (docs: `https://maddex.tsnc.tech/docs/slot`)
-- utils: `src/lib/maddex/utils.py` (docs: `https://maddex.tsnc.tech/docs/utils`)
+- Import the component from its generated `.py` module into the Python page, layout, or component that renders its `<x-*>` tag.
+- For package imports that bind a submodule, Caspian resolves the same-named component from that module; one component lives in one Python file.
 
 ## Usage Notes
 
-- Generated Python files follow this pattern: `src/lib/maddex/<ComponentName>.py`
-- Prefer the configured module path `src.lib.maddex` when the host project exposes that package path for imports.
-- Some components may include sidecar template or asset files next to the main Python module.
-- Manual content outside this managed block is preserved.
+- Use the matching Maddex documentation page for component markup and props when an example is needed.
+- Keep application composition and RPC logic in app-owned Python modules; generated Maddex modules are registry-managed and should be refreshed through the CLI.
+- This guidance is intentionally stable. Component changes update only `maddex.json`.
 <!-- maddex:end -->

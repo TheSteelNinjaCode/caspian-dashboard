@@ -1,5 +1,5 @@
 from typing import Any, Literal
-from casp.component_decorator import component
+from casp.component_decorator import component, html
 from casp.html_attrs import merge_classes, get_attributes
 
 SeparatorOrientation = Literal["horizontal", "vertical"]
@@ -42,4 +42,4 @@ def Separator(
 
     attrs = get_attributes(base_attrs, props)
 
-    return f"<div {attrs}></div>"
+    return html(r"""<div {{ attrs }}></div>""", attrs=attrs)

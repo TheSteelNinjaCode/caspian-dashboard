@@ -1,7 +1,7 @@
 import random
 from typing import Literal, Optional
 
-from casp.component_decorator import component, render_html
+from casp.component_decorator import component, html
 from casp.html_attrs import get_attributes, merge_classes
 
 from src.lib.ppicons.PanelLeft import PanelLeft
@@ -130,12 +130,267 @@ def SidebarProvider(
         props,
     )
 
-    return render_html(
-        "SidebarProvider.html",
-        {
-            "attributes": attributes,
-            "children": children,
-        },
+    # html
+    return html(r"""
+<div {{ attributes }}>
+  {{ children }}
+
+  <script>
+    const SIDEBAR_COOKIE_NAME = "sidebar_state";
+    const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
+    const SIDEBAR_KEYBOARD_SHORTCUT = "b";
+    const SIDEBAR_MEDIA_QUERY = "(max-width: 767px)";
+
+    const normalizeSentinel = (value) => {
+      if (value == null) return undefined;
+
+      if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+        if (["", "none", "null", "undefined"].includes(normalized)) {
+          return undefined;
+        }
+      }
+
+      return value;
+    };
+
+    const parseBool = (value, fallback = false) => {
+      if (value === true) return true;
+      if (value === false) return false;
+      if (value == null) return fallback;
+      if (typeof value !== "string") return Boolean(value);
+
+      const normalized = value.trim().toLowerCase();
+      if (["true", "1", "yes", "on", "", "{true}"].includes(normalized)) return true;
+      if (["false", "0", "no", "off", "none", "null", "undefined", "{false}"].includes(normalized)) return false;
+      return fallback;
+    };
+
+    const rootRef = pp.ref();
+    const mediaQueryRef = pp.ref(null);
+    const controlledOpen = normalizeSentinel(pp.props.open);
+    const isControlled = controlledOpen !== undefined;
+    const initialOpen = parseBool(
+      controlledOpen ?? pp.props.defaultOpen,
+      true,
+    );
+    const initialMobile =
+      typeof window !== "undefined" && typeof window.matchMedia === "function"
+        ? window.matchMedia(SIDEBAR_MEDIA_QUERY).matches
+        : false;
+
+    const openRef = pp.ref(initialOpen);
+    const stateRef = pp.ref(initialOpen ? "expanded" : "collapsed");
+    const mobileRef = pp.ref(initialMobile);
+    const mobileOpenRef = pp.ref(false);
+    const controlledRef = pp.ref(isControlled);
+    const onOpenChangeRef = pp.ref(pp.props.onOpenChange);
+
+    const writeCookie = (nextOpen) => {
+      if (typeof document === "undefined") return;
+      document.cookie = `${SIDEBAR_COOKIE_NAME}=${nextOpen}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+    };
+
+    const syncDom = () => {
+      const root = rootRef.current;
+      if (!(root instanceof HTMLElement)) return;
+
+      root.dataset.state = stateRef.current;
+      root.dataset.open = openRef.current ? "true" : "false";
+      root.dataset.mobile = mobileRef.current ? "true" : "false";
+      root.dataset.mobileOpen = mobileOpenRef.current ? "true" : "false";
+
+      root.querySelectorAll("[data-slot='sidebar']").forEach((node) => {
+        if (!(node instanceof HTMLElement)) return;
+
+        const collapsibleMode = (node.getAttribute("data-collapsible-mode") || "offcanvas").trim();
+        const collapsibleValue =
+          stateRef.current === "collapsed" && collapsibleMode !== "none"
+            ? collapsibleMode
+            : "";
+
+        node.dataset.state = stateRef.current;
+        node.dataset.open = openRef.current ? "true" : "false";
+        node.dataset.mobile = mobileRef.current ? "true" : "false";
+        node.dataset.mobileOpen = mobileOpenRef.current ? "true" : "false";
+        node.dataset.collapsible = collapsibleValue;
+      });
+
+      const shouldShowTooltip = !mobileRef.current && stateRef.current === "collapsed";
+      root.querySelectorAll("[data-slot='sidebar-menu-button'][data-tooltip-content]").forEach((node) => {
+        if (!(node instanceof HTMLElement)) return;
+
+        const tooltip = node.getAttribute("data-tooltip-content") || "";
+        if (shouldShowTooltip && tooltip) {
+          node.setAttribute("title", tooltip);
+        } else {
+          node.removeAttribute("title");
+        }
+      });
+
+      if (typeof document !== "undefined") {
+        document.body.style.overflow = mobileRef.current && mobileOpenRef.current ? "hidden" : "";
+      }
+    };
+
+    const updateDesktopOpen = (valueOrUpdater) => {
+      const nextOpen =
+        typeof valueOrUpdater === "function"
+          ? valueOrUpdater(openRef.current)
+          : valueOrUpdater;
+
+      if (controlledRef.current) {
+        if (typeof onOpenChangeRef.current === "function") {
+          onOpenChangeRef.current(nextOpen);
+        }
+      } else {
+        openRef.current = nextOpen;
+        stateRef.current = nextOpen ? "expanded" : "collapsed";
+        syncDom();
+      }
+
+      writeCookie(nextOpen);
+    };
+
+    const updateMobileOpen = (valueOrUpdater) => {
+      const nextOpen =
+        typeof valueOrUpdater === "function"
+          ? valueOrUpdater(mobileOpenRef.current)
+          : valueOrUpdater;
+
+      mobileOpenRef.current = nextOpen;
+      syncDom();
+    };
+
+    const toggleSidebar = () => {
+      if (mobileRef.current) {
+        updateMobileOpen((previous) => !previous);
+        return;
+      }
+
+      updateDesktopOpen((previous) => !previous);
+    };
+
+    pp.layoutEffect(() => {
+      controlledRef.current = isControlled;
+      onOpenChangeRef.current = pp.props.onOpenChange;
+
+      if (isControlled) {
+        openRef.current = parseBool(controlledOpen, true);
+        stateRef.current = openRef.current ? "expanded" : "collapsed";
+      }
+
+      syncDom();
+    }, [controlledOpen, isControlled, pp.props.onOpenChange]);
+
+    pp.effect(() => {
+      if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+        return undefined;
+      }
+
+      const mediaQuery = window.matchMedia(SIDEBAR_MEDIA_QUERY);
+      mediaQueryRef.current = mediaQuery;
+
+      const onMediaChange = (event) => {
+        mobileRef.current = event.matches;
+        if (!event.matches) {
+          mobileOpenRef.current = false;
+        }
+        syncDom();
+      };
+
+      mobileRef.current = mediaQuery.matches;
+      syncDom();
+
+      if (typeof mediaQuery.addEventListener === "function") {
+        mediaQuery.addEventListener("change", onMediaChange);
+        return () => mediaQuery.removeEventListener("change", onMediaChange);
+      }
+
+      mediaQuery.addListener(onMediaChange);
+      return () => mediaQuery.removeListener(onMediaChange);
+    }, []);
+
+    pp.effect(() => {
+      const root = rootRef.current;
+      if (!(root instanceof HTMLElement)) return;
+
+      const onClick = (event) => {
+        const target = event.target instanceof Node ? event.target : null;
+        const element = target instanceof Element
+          ? target.closest("[data-sidebar='trigger'], [data-sidebar='rail'], [data-sidebar='mobile-overlay'], [data-sidebar='mobile-close']")
+          : null;
+
+        if (!(element instanceof HTMLElement) || !root.contains(element)) {
+          return;
+        }
+
+        if (element.matches("[data-sidebar='mobile-overlay'], [data-sidebar='mobile-close']")) {
+          event.preventDefault();
+          updateMobileOpen(false);
+          return;
+        }
+
+        if (element.matches("[data-sidebar='trigger'], [data-sidebar='rail']")) {
+          event.preventDefault();
+          toggleSidebar();
+        }
+      };
+
+      const onToggle = (event) => {
+        event.stopPropagation();
+        toggleSidebar();
+      };
+
+      const onOpenChange = (event) => {
+        if (!(event instanceof CustomEvent)) return;
+        event.stopPropagation();
+
+        const detail = event.detail || {};
+        const nextOpen = parseBool(detail.open, true);
+
+        if (detail.mobile) {
+          updateMobileOpen(nextOpen);
+        } else {
+          updateDesktopOpen(nextOpen);
+        }
+      };
+
+      const onKeyDown = (event) => {
+        const key = typeof event.key === "string" ? event.key.toLowerCase() : "";
+
+        if (key === SIDEBAR_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
+          event.preventDefault();
+          toggleSidebar();
+          return;
+        }
+
+        if (event.key === "Escape" && mobileOpenRef.current) {
+          event.preventDefault();
+          updateMobileOpen(false);
+        }
+      };
+
+      root.addEventListener("click", onClick);
+      root.addEventListener("sidebar-toggle", onToggle);
+      root.addEventListener("sidebar-open-change", onOpenChange);
+      window.addEventListener("keydown", onKeyDown);
+
+      return () => {
+        root.removeEventListener("click", onClick);
+        root.removeEventListener("sidebar-toggle", onToggle);
+        root.removeEventListener("sidebar-open-change", onOpenChange);
+        window.removeEventListener("keydown", onKeyDown);
+        if (typeof document !== "undefined") {
+          document.body.style.overflow = "";
+        }
+      };
+    }, []);
+  </script>
+</div>
+""",
+        attributes=attributes,
+        children=children,
     )
 
 
@@ -242,12 +497,19 @@ def Sidebar(
         }
     )
 
-    return (
-        f"<div {root_attributes}>"
-        f'<div {overlay_attributes}></div>'
-        f'<div {gap_attributes}></div>'
-        f'<div {container_attributes}><div {inner_attributes}>{children}</div></div>'
-        "</div>"
+    return html(r"""
+<div {{ root_attributes }}><div {{ overlay_attributes }}></div>
+  <div {{ gap_attributes }}></div>
+  <div {{ container_attributes }}><div {{ inner_attributes }}>{{ children }}</div>
+  </div>
+</div>
+""",
+        root_attributes=root_attributes,
+        overlay_attributes=overlay_attributes,
+        gap_attributes=gap_attributes,
+        container_attributes=container_attributes,
+        inner_attributes=inner_attributes,
+        children=children,
     )
 
 
@@ -295,7 +557,7 @@ def SidebarRail(**props):
         props,
     )
 
-    return f"<button {attributes}></button>"
+    return html(r"""<button {{ attributes }}></button>""", attributes=attributes)
 
 
 @component
@@ -316,7 +578,13 @@ def SidebarInset(**props):
         props,
     )
 
-    return f"<main {attributes}>{children}</main>"
+    return html(r"""
+<main {{ attributes }}>{{ children }}
+</main>
+""",
+        attributes=attributes,
+        children=children,
+    )
 
 
 @component
@@ -335,7 +603,7 @@ def SidebarInput(**props):
         props,
     )
 
-    return f"<input {attributes} />"
+    return html(r"""<input {{ attributes }} />""", attributes=attributes)
 
 
 @component
@@ -352,7 +620,8 @@ def SidebarHeader(**props):
         props,
     )
 
-    return f"<div {attributes}>{children}</div>"
+    return html(r"""<div {{ attributes }}>{{ children }}</div>""", attributes=attributes, children=children
+    )
 
 
 @component
@@ -369,7 +638,8 @@ def SidebarFooter(**props):
         props,
     )
 
-    return f"<div {attributes}>{children}</div>"
+    return html(r"""<div {{ attributes }}>{{ children }}</div>""", attributes=attributes, children=children
+    )
 
 
 @component
@@ -402,7 +672,8 @@ def SidebarContent(**props):
         props,
     )
 
-    return f"<div {attributes}>{children}</div>"
+    return html(r"""<div {{ attributes }}>{{ children }}</div>""", attributes=attributes, children=children
+    )
 
 
 @component
@@ -419,7 +690,8 @@ def SidebarGroup(**props):
         props,
     )
 
-    return f"<div {attributes}>{children}</div>"
+    return html(r"""<div {{ attributes }}>{{ children }}</div>""", attributes=attributes, children=children
+    )
 
 
 @component
@@ -449,7 +721,7 @@ def SidebarGroupLabel(
         )
 
     attrs = get_attributes(attributes, props)
-    return f"<div {attrs}>{children}</div>"
+    return html(r"""<div {{ attrs }}>{{ children }}</div>""", attrs=attrs, children=children)
 
 
 @component
@@ -480,7 +752,7 @@ def SidebarGroupAction(
         )
 
     attrs = get_attributes({"type": "button", **attributes}, props)
-    return f"<button {attrs}>{children}</button>"
+    return html(r"""<button {{ attrs }}>{{ children }}</button>""", attrs=attrs, children=children)
 
 
 @component
@@ -497,7 +769,8 @@ def SidebarGroupContent(**props):
         props,
     )
 
-    return f"<div {attributes}>{children}</div>"
+    return html(r"""<div {{ attributes }}>{{ children }}</div>""", attributes=attributes, children=children
+    )
 
 
 @component
@@ -514,7 +787,13 @@ def SidebarMenu(**props):
         props,
     )
 
-    return f"<ul {attributes}>{children}</ul>"
+    return html(r"""
+<ul {{ attributes }}>{{ children }}
+</ul>
+""",
+        attributes=attributes,
+        children=children,
+    )
 
 
 @component
@@ -531,7 +810,8 @@ def SidebarMenuItem(**props):
         props,
     )
 
-    return f"<li {attributes}>{children}</li>"
+    return html(r"""<li {{ attributes }}>{{ children }}</li>""", attributes=attributes, children=children
+    )
 
 
 @component
@@ -568,7 +848,7 @@ def SidebarMenuButton(
         )
 
     attrs = get_attributes({"type": "button", **attributes}, props)
-    return f"<button {attrs}>{children}</button>"
+    return html(r"""<button {{ attrs }}>{{ children }}</button>""", attrs=attrs, children=children)
 
 
 @component
@@ -609,7 +889,7 @@ def SidebarMenuAction(
         )
 
     attrs = get_attributes({"type": "button", **attributes}, props)
-    return f"<button {attrs}>{children}</button>"
+    return html(r"""<button {{ attrs }}>{{ children }}</button>""", attrs=attrs, children=children)
 
 
 @component
@@ -632,7 +912,8 @@ def SidebarMenuBadge(**props):
         props,
     )
 
-    return f"<div {attributes}>{children}</div>"
+    return html(r"""<div {{ attributes }}>{{ children }}</div>""", attributes=attributes, children=children
+    )
 
 
 @component
@@ -672,7 +953,11 @@ def SidebarMenuSkeleton(
         props,
     )
 
-    return f"<div {attributes}>{icon}{text}</div>"
+    return html(r"""<div {{ attributes }}>{{ icon }}{{ text }}</div>""",
+        attributes=attributes,
+        icon=icon,
+        text=text,
+    )
 
 
 @component
@@ -693,7 +978,13 @@ def SidebarMenuSub(**props):
         props,
     )
 
-    return f"<ul {attributes}>{children}</ul>"
+    return html(r"""
+<ul {{ attributes }}>{{ children }}
+</ul>
+""",
+        attributes=attributes,
+        children=children,
+    )
 
 
 @component
@@ -710,7 +1001,8 @@ def SidebarMenuSubItem(**props):
         props,
     )
 
-    return f"<li {attributes}>{children}</li>"
+    return html(r"""<li {{ attributes }}>{{ children }}</li>""", attributes=attributes, children=children
+    )
 
 
 @component
@@ -750,4 +1042,4 @@ def SidebarMenuSubButton(
         )
 
     attrs = get_attributes(attributes, props)
-    return f"<a {attrs}>{children}</a>"
+    return html(r"""<a {{ attrs }}>{{ children }}</a>""", attrs=attrs, children=children)

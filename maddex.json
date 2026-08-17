@@ -13,7 +13,7 @@
   "iconLibrary": "ppicons",
   "manifest": {
     "schemaVersion": 1,
-    "generatedAt": "2026-06-14T23:30:39.884Z",
+    "generatedAt": "2026-08-17T22:27:41.664Z",
     "project": {
       "framework": "maddex",
       "language": "python",
@@ -22,7 +22,8 @@
       "componentsDirectory": "src/lib/maddex",
       "pythonPath": "src/lib/maddex",
       "copilotInstructionsFile": ".github/copilot-instructions.md",
-      "maddexInstructionsFile": ".github/instructions/maddex.instructions.md"
+      "maddexInstructionsFile": ".github/instructions/maddex.instructions.md",
+      "agentsInstructionsFile": "AGENTS.md"
     },
     "commands": {
       "addOne": "npx maddex add <component-name>",

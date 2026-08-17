@@ -56,16 +56,23 @@ Use HTML-first `x-` icon tags.
 - Use the `tagName` values from `settings/component-map.json` as the icon tag contract.
 - Keep PPIcons examples and generated markup aligned with those current `x-` tag values.
 
-For Caspian templates:
+For Caspian Python components, routes, and layouts:
 
-```html
-<!-- @import { Search } from ../../lib/ppicons -->
+```python
+from src.lib.ppicons import Search
+from casp.component_decorator import component, html
 
-<x-search />
-<x-search class="size-4" />
+@component
+def icon_actions():
+    return html(r"""
+    <div>
+        <x-search />
+        <x-search class="size-4" />
+    </div>
+    """)
 ```
 
-Adjust the relative import path so it points to the icons directory from the current template file.
+Import every `x-` icon tag from the Python module that authors it. Caspian has no HTML-sidecar or comment import syntax.
 
 ## Notes
 

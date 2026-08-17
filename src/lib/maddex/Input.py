@@ -1,5 +1,5 @@
 from casp.html_attrs import get_attributes, merge_classes
-from casp.component_decorator import component
+from casp.component_decorator import component, html
 
 
 @component
@@ -10,9 +10,6 @@ def Input(**props):
     }
     final_class = merge_classes(base_class, incoming_class)
 
-    attributes = get_attributes({
-        "data-slot": "input",
-        "class": final_class
-    }, props)
+    attributes = get_attributes({"data-slot": "input", "class": final_class}, props)
 
-    return f"<input {attributes} />"
+    return html(r"""<input {{ attributes }} />""", attributes=attributes)

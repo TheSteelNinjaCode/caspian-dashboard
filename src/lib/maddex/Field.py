@@ -1,12 +1,13 @@
-import html
 from collections.abc import Mapping, Sequence
+from html import escape as escape_html
 from typing import Any, Literal
 
-from casp.component_decorator import component
+from casp.component_decorator import component, html
 from casp.html_attrs import get_attributes, merge_classes
 
 from .Separator import Separator
 from .Slot import Slot
+from markupsafe import Markup
 
 FieldOrientation = Literal["vertical", "horizontal", "responsive"]
 FieldLegendVariant = Literal["legend", "label"]
@@ -82,8 +83,9 @@ def _normalize_error_messages(
     return messages
 
 
-def _field_label_proxy_script() -> str:
-        return """
+def _field_label_proxy_script() -> Markup:
+    return Markup(
+        """
 <script>
     const rootRef = pp.ref();
 
@@ -154,6 +156,7 @@ def _field_label_proxy_script() -> str:
     }, [pp.props.for, pp.props.htmlFor]);
 </script>
         """.strip()
+    )
 
 
 @component
@@ -173,7 +176,13 @@ def FieldSet(**props) -> str:
         props,
     )
 
-    return f"<fieldset {attributes}>{children}</fieldset>"
+    return html(r"""
+<fieldset {{ attributes }}>{{ children }}
+</fieldset>
+""",
+        attributes=attributes,
+        children=children,
+    )
 
 
 @component
@@ -203,7 +212,10 @@ def FieldLegend(
         props,
     )
 
-    return f"<legend {attributes}>{children}</legend>"
+    return html(r"""<legend {{ attributes }}>{{ children }}</legend>""",
+        attributes=attributes,
+        children=children,
+    )
 
 
 @component
@@ -223,7 +235,8 @@ def FieldGroup(**props) -> str:
         props,
     )
 
-    return f"<div {attributes}>{children}</div>"
+    return html(r"""<div {{ attributes }}>{{ children }}</div>""", attributes=attributes, children=children
+    )
 
 
 @component
@@ -274,7 +287,8 @@ def Field(
         props,
     )
 
-    return f"<div {attributes}>{children}</div>"
+    return html(r"""<div {{ attributes }}>{{ children }}</div>""", attributes=attributes, children=children
+    )
 
 
 @component
@@ -293,7 +307,8 @@ def FieldContent(**props) -> str:
         props,
     )
 
-    return f"<div {attributes}>{children}</div>"
+    return html(r"""<div {{ attributes }}>{{ children }}</div>""", attributes=attributes, children=children
+    )
 
 
 @component
@@ -340,7 +355,11 @@ def FieldLabel(
         props,
     )
 
-    return f"<label {attributes}>{children}{proxy_script}</label>"
+    return html(r"""<label {{ attributes }}>{{ children }}{{ proxy_script }}</label>""",
+        attributes=attributes,
+        children=children,
+        proxy_script=proxy_script,
+    )
 
 
 @component
@@ -360,7 +379,8 @@ def FieldTitle(**props) -> str:
         props,
     )
 
-    return f"<div {attributes}>{children}</div>"
+    return html(r"""<div {{ attributes }}>{{ children }}</div>""", attributes=attributes, children=children
+    )
 
 
 @component
@@ -382,7 +402,8 @@ def FieldDescription(**props) -> str:
         props,
     )
 
-    return f"<p {attributes}>{children}</p>"
+    return html(r"""<p {{ attributes }}>{{ children }}</p>""", attributes=attributes, children=children
+    )
 
 
 @component
@@ -405,7 +426,10 @@ def FieldSeparator(**props) -> str:
 
     separator = Separator(**{"class": "absolute inset-0 top-1/2"})
     if not has_content:
-        return f"<div {attributes}>{separator}</div>"
+        return html(r"""<div {{ attributes }}>{{ separator }}</div>""",
+            attributes=attributes,
+            separator=separator,
+        )
 
     content_attributes = get_attributes(
         {
@@ -414,11 +438,11 @@ def FieldSeparator(**props) -> str:
         }
     )
 
-    return (
-        f"<div {attributes}>"
-        f"{separator}"
-        f"<span {content_attributes}>{children}</span>"
-        f"</div>"
+    return html(r"""<div {{ attributes }}>{{ separator }}<span {{ content_attributes }}>{{ children }}</span></div>""",
+        attributes=attributes,
+        separator=separator,
+        content_attributes=content_attributes,
+        children=children,
     )
 
 
@@ -431,13 +455,16 @@ def FieldError(
     children = props.pop("children", "")
     messages = _normalize_error_messages(props.pop("errors", errors))
 
+    # Each branch is already-safe markup: children is nested component output and
+    # the message branches escape the message text themselves, so the result is
+    # marked trusted rather than escaped a second time on the way into html(...).
     if children:
-        content = children
+        content = Markup(children)
     elif len(messages) == 1:
-        content = html.escape(messages[0])
+        content = Markup(escape_html(messages[0]))
     elif len(messages) > 1:
-        items = "".join(f"<li>{html.escape(message)}</li>" for message in messages)
-        content = f'<ul class="ml-4 flex list-disc flex-col gap-1">{items}</ul>'
+        items = "".join(f"<li>{escape_html(message)}</li>" for message in messages)
+        content = Markup(f'<ul class="ml-4 flex list-disc flex-col gap-1">{items}</ul>')
     else:
         return ""
 
@@ -453,4 +480,5 @@ def FieldError(
         props,
     )
 
-    return f"<div {attributes}>{content}</div>"
+    return html(r"""<div {{ attributes }}>{{ content }}</div>""", attributes=attributes, content=content
+    )

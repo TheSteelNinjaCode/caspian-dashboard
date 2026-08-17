@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 6,
-  "generatedAt": "2026-06-14T23:57:53.926Z",
+  "schemaVersion": 7,
+  "generatedAt": "2026-08-17T22:28:01.824Z",
   "project": {
     "type": "caspian",
     "framework": "caspian",
@@ -12,7 +12,8 @@
     "manifestFile": "ppicons.json",
     "componentsDirectory": "src/lib/ppicons",
     "iconsDirectory": "src/lib/ppicons",
-    "copilotInstructionsFile": ".github/instructions/ppicons.instructions.md"
+    "copilotInstructionsFile": ".github/instructions/ppicons.instructions.md",
+    "agentsFile": "AGENTS.md"
   },
   "commands": {
     "addOne": "npx ppicons add <icon-name>",

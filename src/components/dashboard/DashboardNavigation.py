@@ -46,7 +46,7 @@ def DashboardNavigation(isOverview: str = "False", isUsers: str = "False"):
         <x-sidebar-menu>
           <x-sidebar-menu-item>
             <x-sidebar-menu-button asChild="True"
-                                   isActive="{{ is_overview }}"
+                                   isActive="{{ isOverview }}"
                                    tooltip="Overview"
                                    class="group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden">
               <a href="/dashboard"><x-house class="size-4" /><span>Overview</span></a>
@@ -63,7 +63,7 @@ def DashboardNavigation(isOverview: str = "False", isUsers: str = "False"):
           </x-sidebar-menu-item>
           <x-sidebar-menu-item>
             <x-sidebar-menu-button asChild="True"
-                                   isActive="{{ is_users }}"
+                                   isActive="{{ isUsers }}"
                                    tooltip="Users">
               <a href="/dashboard/users"><x-users class="size-4" /><span>Users</span></a>
             </x-sidebar-menu-button>
@@ -108,6 +108,6 @@ def DashboardNavigation(isOverview: str = "False", isUsers: str = "False"):
   </x-sidebar-footer>
 </x-sidebar>
 """,
-        is_overview=isOverview,
-        is_users=isUsers,
+        isOverview=isOverview,
+        isUsers=isUsers,
     )

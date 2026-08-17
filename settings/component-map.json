@@ -1,11 +1,162 @@
 [
   {
+    "componentName": "SigninPanel",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\components\\auth\\SigninPanel.py",
+    "relativePath": "src/components/auth/SigninPanel.py",
+    "importRoute": "src.components.auth.SigninPanel",
+    "acceptsArbitraryProps": false,
+    "props": []
+  },
+  {
+    "componentName": "DashboardNavigation",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\components\\dashboard\\DashboardNavigation.py",
+    "relativePath": "src/components/dashboard/DashboardNavigation.py",
+    "importRoute": "src.components.dashboard.DashboardNavigation",
+    "acceptsArbitraryProps": false,
+    "props": [
+      {
+        "name": "isOverview",
+        "type": "str",
+        "hasDefault": true,
+        "defaultValue": "False"
+      },
+      {
+        "name": "isUsers",
+        "type": "str",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "DashboardTopbar",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\components\\dashboard\\DashboardTopbar.py",
+    "relativePath": "src/components/dashboard/DashboardTopbar.py",
+    "importRoute": "src.components.dashboard.DashboardTopbar",
+    "acceptsArbitraryProps": false,
+    "props": [
+      {
+        "name": "currentSection",
+        "type": "str",
+        "hasDefault": true,
+        "defaultValue": "Overview"
+      }
+    ]
+  },
+  {
+    "componentName": "DashboardMetrics",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\components\\dashboard\\overview\\DashboardMetrics.py",
+    "relativePath": "src/components/dashboard/overview/DashboardMetrics.py",
+    "importRoute": "src.components.dashboard.overview.DashboardMetrics",
+    "acceptsArbitraryProps": false,
+    "props": []
+  },
+  {
+    "componentName": "RecentSales",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\components\\dashboard\\overview\\RecentSales.py",
+    "relativePath": "src/components/dashboard/overview/RecentSales.py",
+    "importRoute": "src.components.dashboard.overview.RecentSales",
+    "acceptsArbitraryProps": false,
+    "props": []
+  },
+  {
+    "componentName": "TrafficSnapshot",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\components\\dashboard\\overview\\TrafficSnapshot.py",
+    "relativePath": "src/components/dashboard/overview/TrafficSnapshot.py",
+    "importRoute": "src.components.dashboard.overview.TrafficSnapshot",
+    "acceptsArbitraryProps": false,
+    "props": []
+  },
+  {
+    "componentName": "ProfileDetails",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\components\\dashboard\\profile\\ProfileDetails.py",
+    "relativePath": "src/components/dashboard/profile/ProfileDetails.py",
+    "importRoute": "src.components.dashboard.profile.ProfileDetails",
+    "acceptsArbitraryProps": false,
+    "props": []
+  },
+  {
+    "componentName": "ProfileSummary",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\components\\dashboard\\profile\\ProfileSummary.py",
+    "relativePath": "src/components/dashboard/profile/ProfileSummary.py",
+    "importRoute": "src.components.dashboard.profile.ProfileSummary",
+    "acceptsArbitraryProps": false,
+    "props": []
+  },
+  {
     "componentName": "CreateUpdateDialog",
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\components\\dashboard\\users\\CreateUpdateDialog.py",
     "relativePath": "src/components/dashboard/users/CreateUpdateDialog.py",
     "importRoute": "src.components.dashboard.users.CreateUpdateDialog",
     "acceptsArbitraryProps": true,
     "props": []
+  },
+  {
+    "componentName": "UsersPagination",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\components\\dashboard\\users\\UsersPagination.py",
+    "relativePath": "src/components/dashboard/users/UsersPagination.py",
+    "importRoute": "src.components.dashboard.users.UsersPagination",
+    "acceptsArbitraryProps": false,
+    "props": [
+      {
+        "name": "current_page",
+        "type": "int",
+        "hasDefault": false
+      },
+      {
+        "name": "total_pages",
+        "type": "int",
+        "hasDefault": false
+      },
+      {
+        "name": "has_previous",
+        "type": "bool",
+        "hasDefault": false
+      },
+      {
+        "name": "has_next",
+        "type": "bool",
+        "hasDefault": false
+      },
+      {
+        "name": "previous_href",
+        "type": "str",
+        "hasDefault": false
+      },
+      {
+        "name": "next_href",
+        "type": "str",
+        "hasDefault": false
+      }
+    ]
+  },
+  {
+    "componentName": "UsersTable",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\components\\dashboard\\users\\UsersTable.py",
+    "relativePath": "src/components/dashboard/users/UsersTable.py",
+    "importRoute": "src.components.dashboard.users.UsersTable",
+    "acceptsArbitraryProps": false,
+    "props": [
+      {
+        "name": "users",
+        "type": "list[dict[str, str]]",
+        "hasDefault": false
+      }
+    ]
+  },
+  {
+    "componentName": "UsersToolbar",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\components\\dashboard\\users\\UsersToolbar.py",
+    "relativePath": "src/components/dashboard/users/UsersToolbar.py",
+    "importRoute": "src.components.dashboard.users.UsersToolbar",
+    "acceptsArbitraryProps": false,
+    "props": [
+      {
+        "name": "search_term",
+        "type": "str",
+        "hasDefault": false
+      }
+    ]
   },
   {
     "componentName": "Button",

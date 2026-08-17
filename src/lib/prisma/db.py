@@ -7,28 +7,21 @@ from enum import Enum as PyEnum
 from pathlib import Path
 from typing import Optional, Dict, Any, List, Callable, AsyncGenerator, Union, Tuple, Mapping, Sequence, cast, Set, Awaitable
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime
 from dotenv import load_dotenv
 import contextvars
 
 import aiosqlite
-from aiosqlite import Connection, Cursor
+from aiosqlite import Connection
 
 from .models import (
     User, UserRole,
     UserWhereInput, UserWhereUniqueInput, UserSelect, UserOmit, UserInclude, UserOrderBy, UserCreateInput, UserUpdateInput, UserRoleWhereInput, UserRoleWhereUniqueInput, UserRoleSelect, UserRoleOmit, UserRoleInclude, UserRoleOrderBy, UserRoleCreateInput, UserRoleUpdateInput,
     generate_cuid,
-    generate_uuid,
-    generate_nanoid,
-    generate_ulid,
-    utc_now_str,
     get_datetime_value,
     normalize_datetime_field_value,
     SelectDict,
-    IncludeDict,
-    DbNull,
     JsonNull,
-    AnyNull,
     is_db_null,
     is_json_null,
     is_any_null,
@@ -625,7 +618,7 @@ class SQLBuilder:
 
         return " AND ".join(conditions), params, idx
 
-    
+
     @classmethod
     def build_order_by(
         cls,
@@ -2910,7 +2903,7 @@ class BaseDelegate:
 
 
 # User table info
-USER_TABLE = "User" 
+USER_TABLE = "User"
 USER_PK_FIELDS = ["id"]
 USER_PK_SELECTOR = "id"
 USER_UNIQUE_SELECTORS: Dict[str, List[str]] = {"id": ["id"], "email": ["email"]}
@@ -2928,7 +2921,7 @@ USER_SCALAR_LIST_ENUM_FIELDS: Dict[str, Any] = {}
 
 
 # UserRole table info
-USERROLE_TABLE = "UserRole" 
+USERROLE_TABLE = "UserRole"
 USERROLE_PK_FIELDS = ["id"]
 USERROLE_PK_SELECTOR = "id"
 USERROLE_UNIQUE_SELECTORS: Dict[str, List[str]] = {"id": ["id"], "name": ["name"]}
@@ -2980,15 +2973,18 @@ class UserDelegate(BaseDelegate):
         if data.get("emailVerified") and isinstance(data["emailVerified"], str):
             try:
                 data["emailVerified"] = datetime.fromisoformat(data["emailVerified"])
-            except: pass
+            except ValueError:
+                pass
         if data.get("createdAt") and isinstance(data["createdAt"], str):
             try:
                 data["createdAt"] = datetime.fromisoformat(data["createdAt"])
-            except: pass
+            except ValueError:
+                pass
         if data.get("updatedAt") and isinstance(data["updatedAt"], str):
             try:
                 data["updatedAt"] = datetime.fromisoformat(data["updatedAt"])
-            except: pass
+            except ValueError:
+                pass
 
 
 
@@ -3624,7 +3620,6 @@ class UserDelegate(BaseDelegate):
         if not records or not count_requests:
             return
 
-        conn = await self._get_conn()
         handled_count_requests: Set[str] = set()
 
         remaining_count_requests = {
@@ -3667,8 +3662,6 @@ class UserDelegate(BaseDelegate):
         if not include or not records:
             return
 
-        conn = await self._get_conn()
-
         # Load userRole relation
         inc_userRole = include.get("userRole")
         if inc_userRole:
@@ -3677,9 +3670,6 @@ class UserDelegate(BaseDelegate):
             nested_select = None
             nested_omit = None
             nested_where = None
-            nested_order = None
-            nested_take = None
-            nested_skip = None
             nested_distinct = None
             nested_cursor = None
 
@@ -3688,9 +3678,6 @@ class UserDelegate(BaseDelegate):
                 nested_select = inc_userRole.get("select")
                 nested_omit = inc_userRole.get("omit")
                 nested_where = inc_userRole.get("where")
-                nested_order = inc_userRole.get("orderBy")
-                nested_take = inc_userRole.get("take")
-                nested_skip = inc_userRole.get("skip")
                 nested_distinct = inc_userRole.get("distinct")
                 nested_cursor = inc_userRole.get("cursor")
 
@@ -3926,7 +3913,7 @@ class UserDelegate(BaseDelegate):
         """Find first or raise error"""
         result = await self.find_first(where, select, omit, include, order_by, skip)
         if result is None:
-            raise RecordNotFoundError(f"User not found")
+            raise RecordNotFoundError("User not found")
         return result
 
     async def create(
@@ -3977,7 +3964,7 @@ class UserDelegate(BaseDelegate):
         created_where = cast(UserWhereUniqueInput, self._build_primary_where(data_dict))
         stored_record = await self.find_unique(created_where)
         if stored_record is None:
-            raise RecordNotFoundError(f"Failed to create User")
+            raise RecordNotFoundError("Failed to create User")
 
         await self._apply_post_write_relations(stored_record, relation_writes)
         if not (select or omit or include):
@@ -3985,7 +3972,7 @@ class UserDelegate(BaseDelegate):
 
         result = await self.find_unique(created_where, select=select, omit=omit, include=include)
         if result is None:
-            raise RecordNotFoundError(f"Failed to load User after create")
+            raise RecordNotFoundError("Failed to load User after create")
         return result
 
     async def create_many(
@@ -5187,14 +5174,14 @@ class UserDelegate(BaseDelegate):
 
                 result = await self.find_unique(where, select=select, omit=omit, include=include)
                 if result is None:
-                    raise RecordNotFoundError(f"Failed to load User after upsert")
+                    raise RecordNotFoundError("Failed to load User after upsert")
                 return result
 
         existing = await self.find_unique(where)
         if existing:
             result = await self.update(where, update, select=select, omit=omit, include=include)
             if result is None:
-                raise RecordNotFoundError(f"Failed to update User")
+                raise RecordNotFoundError("Failed to update User")
             return result
         return await self.create(create, select=select, omit=omit, include=include)
 
@@ -5300,7 +5287,7 @@ class UserDelegate(BaseDelegate):
             **build_truthy_field_map(having_aggregate_inputs.get("_count"), valid_fields),
             **build_truthy_field_map(order_by_aggregate_inputs.get("_count"), valid_fields),
         }
-        should_compute_count = include_count_all or bool(computed_count_fields)
+        _ = include_count_all or bool(computed_count_fields)
 
         order_by_clauses = [
             clause for clause in ensure_list(order_by)
@@ -6103,8 +6090,6 @@ class UserRoleDelegate(BaseDelegate):
         if not include or not records:
             return
 
-        conn = await self._get_conn()
-
         # Load user relation
         inc_user = include.get("user")
         if inc_user:
@@ -6372,7 +6357,7 @@ class UserRoleDelegate(BaseDelegate):
         """Find first or raise error"""
         result = await self.find_first(where, select, omit, include, order_by, skip)
         if result is None:
-            raise RecordNotFoundError(f"UserRole not found")
+            raise RecordNotFoundError("UserRole not found")
         return result
 
     async def create(
@@ -6417,7 +6402,7 @@ class UserRoleDelegate(BaseDelegate):
         created_where = cast(UserRoleWhereUniqueInput, self._build_primary_where(data_dict))
         stored_record = await self.find_unique(created_where)
         if stored_record is None:
-            raise RecordNotFoundError(f"Failed to create UserRole")
+            raise RecordNotFoundError("Failed to create UserRole")
 
         await self._apply_post_write_relations(stored_record, relation_writes)
         if not (select or omit or include):
@@ -6425,7 +6410,7 @@ class UserRoleDelegate(BaseDelegate):
 
         result = await self.find_unique(created_where, select=select, omit=omit, include=include)
         if result is None:
-            raise RecordNotFoundError(f"Failed to load UserRole after create")
+            raise RecordNotFoundError("Failed to load UserRole after create")
         return result
 
     async def create_many(
@@ -7624,14 +7609,14 @@ class UserRoleDelegate(BaseDelegate):
 
                 result = await self.find_unique(where, select=select, omit=omit, include=include)
                 if result is None:
-                    raise RecordNotFoundError(f"Failed to load UserRole after upsert")
+                    raise RecordNotFoundError("Failed to load UserRole after upsert")
                 return result
 
         existing = await self.find_unique(where)
         if existing:
             result = await self.update(where, update, select=select, omit=omit, include=include)
             if result is None:
-                raise RecordNotFoundError(f"Failed to update UserRole")
+                raise RecordNotFoundError("Failed to update UserRole")
             return result
         return await self.create(create, select=select, omit=omit, include=include)
 
@@ -7737,7 +7722,7 @@ class UserRoleDelegate(BaseDelegate):
             **build_truthy_field_map(having_aggregate_inputs.get("_count"), valid_fields),
             **build_truthy_field_map(order_by_aggregate_inputs.get("_count"), valid_fields),
         }
-        should_compute_count = include_count_all or bool(computed_count_fields)
+        _ = include_count_all or bool(computed_count_fields)
 
         order_by_clauses = [
             clause for clause in ensure_list(order_by)

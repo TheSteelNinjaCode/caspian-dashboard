@@ -37,6 +37,9 @@ def test_health_carries_security_headers():
     assert response.headers.get("x-content-type-options") == "nosniff"
 
 
-def test_unknown_route_is_404():
+def test_unknown_route_redirects_to_signin_in_all_private_mode():
     response = _get_sync("/definitely-not-a-real-route")
-    assert response.status_code == 404
+    assert response.status_code == 303
+    assert response.headers["location"] == (
+        "/signin?next=%2Fdefinitely-not-a-real-route"
+    )

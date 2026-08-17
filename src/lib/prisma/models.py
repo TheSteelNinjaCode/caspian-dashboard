@@ -1,10 +1,9 @@
 """Auto-generated from Prisma schema - Async Direct SQL without ORM layer"""
 import uuid
-import json
 from enum import Enum as PyEnum
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List, TypedDict, Union, Literal, Tuple, Set
-from dataclasses import dataclass, field, asdict
+from typing import Optional, Dict, Any, List, TypedDict, Union, Literal, Set
+from dataclasses import dataclass, field
 
 try:
     from cuid2 import cuid_wrapper

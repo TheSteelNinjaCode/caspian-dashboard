@@ -99,6 +99,39 @@
     ]
   },
   {
+    "componentName": "DeleteUserDialog",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\components\\dashboard\\users\\DeleteUserDialog.py",
+    "relativePath": "src/components/dashboard/users/DeleteUserDialog.py",
+    "importRoute": "src.components.dashboard.users.DeleteUserDialog",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "selectedItem",
+        "type": "str | None",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "isDeleting",
+        "type": "str | None",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "error",
+        "type": "str | None",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "onConfirm",
+        "type": "str | None",
+        "hasDefault": true,
+        "defaultValue": "None"
+      }
+    ]
+  },
+  {
     "componentName": "UsersPagination",
     "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\components\\dashboard\\users\\UsersPagination.py",
     "relativePath": "src/components/dashboard/users/UsersPagination.py",
@@ -164,6 +197,177 @@
         "hasDefault": false
       }
     ]
+  },
+  {
+    "componentName": "AlertDialog",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "open",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "onOpenChange",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      },
+      {
+        "name": "closeOnOverlayClick",
+        "type": "bool | str",
+        "hasDefault": true,
+        "defaultValue": "True"
+      },
+      {
+        "name": "resetOnOpen",
+        "type": "bool | str",
+        "hasDefault": true,
+        "defaultValue": "False"
+      },
+      {
+        "name": "id",
+        "type": "Optional[str]",
+        "hasDefault": true,
+        "defaultValue": "None"
+      }
+    ]
+  },
+  {
+    "componentName": "AlertDialogTrigger",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "asChild",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "AlertDialogOverlay",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "AlertDialogContent",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "size",
+        "type": "AlertDialogSize | str",
+        "hasDefault": true,
+        "defaultValue": "default"
+      }
+    ]
+  },
+  {
+    "componentName": "AlertDialogHeader",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "AlertDialogFooter",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "AlertDialogTitle",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "AlertDialogDescription",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": []
+  },
+  {
+    "componentName": "AlertDialogAction",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "variant",
+        "type": "str",
+        "hasDefault": true,
+        "defaultValue": "default"
+      },
+      {
+        "name": "size",
+        "type": "str",
+        "hasDefault": true,
+        "defaultValue": "default"
+      },
+      {
+        "name": "asChild",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "AlertDialogCancel",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": [
+      {
+        "name": "variant",
+        "type": "str",
+        "hasDefault": true,
+        "defaultValue": "outline"
+      },
+      {
+        "name": "size",
+        "type": "str",
+        "hasDefault": true,
+        "defaultValue": "default"
+      },
+      {
+        "name": "asChild",
+        "type": "bool | str | None",
+        "hasDefault": true,
+        "defaultValue": "False"
+      }
+    ]
+  },
+  {
+    "componentName": "AlertDialogMedia",
+    "filePath": "C:\\xampp\\htdocs\\projects\\python\\starter-kits\\caspian-dashboard\\src\\lib\\maddex\\AlertDialog.py",
+    "relativePath": "src/lib/maddex/AlertDialog.py",
+    "importRoute": "src.lib.maddex.AlertDialog",
+    "acceptsArbitraryProps": true,
+    "props": []
   },
   {
     "componentName": "Button",

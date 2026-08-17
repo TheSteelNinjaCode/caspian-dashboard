@@ -29,6 +29,7 @@
     --color-black: #000;
     --color-white: #fff;
     --spacing: 0.25rem;
+    --container-xs: 20rem;
     --container-sm: 24rem;
     --container-md: 28rem;
     --container-lg: 32rem;
@@ -621,6 +622,9 @@
   .auto-rows-min {
     grid-auto-rows: min-content;
   }
+  .grid-rows-\[auto_1fr\] {
+    grid-template-rows: auto 1fr;
+  }
   .grid-rows-\[auto_auto\] {
     grid-template-rows: auto auto;
   }
@@ -635,6 +639,9 @@
   }
   .flex-wrap {
     flex-wrap: wrap;
+  }
+  .place-items-center {
+    place-items: center;
   }
   .items-center {
     align-items: center;
@@ -1111,6 +1118,9 @@
     --tw-tracking: var(--tracking-widest);
     letter-spacing: var(--tracking-widest);
   }
+  .text-balance {
+    text-wrap: balance;
+  }
   .text-pretty {
     text-wrap: pretty;
   }
@@ -1437,6 +1447,12 @@
   .group-data-\[side\=right\]\:rotate-180:is(:where(.group)[data-side="right"] *) {
     rotate: 180deg;
   }
+  .group-data-\[size\=sm\]\/alert-dialog-content\:grid:is(:where(.group\/alert-dialog-content)[data-size="sm"] *) {
+    display: grid;
+  }
+  .group-data-\[size\=sm\]\/alert-dialog-content\:grid-cols-2:is(:where(.group\/alert-dialog-content)[data-size="sm"] *) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .group-data-\[variant\=floating\]\:rounded-lg:is(:where(.group)[data-variant="floating"] *) {
     border-radius: var(--radius);
   }
@@ -1705,6 +1721,12 @@
   :where([data-side="right"]) .in-data-\[side\=right\]\:cursor-e-resize {
     cursor: e-resize;
   }
+  .has-data-\[slot\=alert-dialog-media\]\:grid-rows-\[auto_auto_1fr\]:has([data-slot="alert-dialog-media"]) {
+    grid-template-rows: auto auto 1fr;
+  }
+  .has-data-\[slot\=alert-dialog-media\]\:gap-x-4:has([data-slot="alert-dialog-media"]) {
+    column-gap: calc(var(--spacing) * 4);
+  }
   .has-data-\[slot\=card-action\]\:grid-cols-\[1fr_auto\]:has([data-slot="card-action"]) {
     grid-template-columns: 1fr auto;
   }
@@ -1819,6 +1841,12 @@
   .data-\[side\=right\]\:group-data-\[mobile-open\=false\]\:translate-x-full[data-side="right"]:is(:where(.group)[data-mobile-open="false"] *) {
     --tw-translate-x: 100%;
     translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
+  .data-\[size\=default\]\:max-w-xs[data-size="default"] {
+    max-width: var(--container-xs);
+  }
+  .data-\[size\=sm\]\:max-w-xs[data-size="sm"] {
+    max-width: var(--container-xs);
   }
   .data-\[slot\=checkbox-group\]\:gap-3[data-slot="checkbox-group"] {
     gap: calc(var(--spacing) * 3);
@@ -1941,6 +1969,24 @@
       font-size: var(--text-4xl);
       line-height: var(--tw-leading, var(--text-4xl--line-height));
     }
+    .sm\:group-data-\[size\=default\]\/alert-dialog-content\:row-span-2:is(:where(.group\/alert-dialog-content)[data-size="default"] *) {
+      grid-row: span 2 / span 2;
+    }
+    .sm\:group-data-\[size\=default\]\/alert-dialog-content\:place-items-start:is(:where(.group\/alert-dialog-content)[data-size="default"] *) {
+      place-items: start;
+    }
+    .sm\:group-data-\[size\=default\]\/alert-dialog-content\:text-left:is(:where(.group\/alert-dialog-content)[data-size="default"] *) {
+      text-align: left;
+    }
+    .sm\:group-data-\[size\=default\]\/alert-dialog-content\:group-has-data-\[slot\=alert-dialog-media\]\/alert-dialog-content\:col-start-2:is(:where(.group\/alert-dialog-content)[data-size="default"] *):is(:where(.group\/alert-dialog-content):has([data-slot="alert-dialog-media"]) *) {
+      grid-column-start: 2;
+    }
+    .sm\:group-data-\[size\=default\]\/alert-dialog-content\:has-data-\[slot\=alert-dialog-media\]\:grid-rows-\[auto_1fr\]:is(:where(.group\/alert-dialog-content)[data-size="default"] *):has([data-slot="alert-dialog-media"]) {
+      grid-template-rows: auto 1fr;
+    }
+    .data-\[size\=default\]\:sm\:max-w-sm[data-size="default"] {
+      max-width: var(--container-sm);
+    }
   }
   @media (width >= 48rem) {
     .md\:z-10 {
@@ -1994,6 +2040,9 @@
     .md\:text-sm {
       font-size: var(--text-sm);
       line-height: var(--tw-leading, var(--text-sm--line-height));
+    }
+    .md\:text-pretty {
+      text-wrap: pretty;
     }
     .md\:opacity-0 {
       opacity: 0%;
@@ -2167,6 +2216,10 @@
     :is(.\*\:\[a\]\:hover\:text-foreground > *):is(a):hover {
       color: var(--foreground);
     }
+  }
+  :is(.\*\:\[svg\:not\(\[class\*\=\'size-\'\]\)\]\:size-6 > *):is(svg:not([class*='size-'])) {
+    width: calc(var(--spacing) * 6);
+    height: calc(var(--spacing) * 6);
   }
   .\[\&\>\*\]\:w-full > * {
     width: 100%;

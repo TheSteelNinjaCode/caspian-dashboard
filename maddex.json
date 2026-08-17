@@ -13,7 +13,7 @@
   "iconLibrary": "ppicons",
   "manifest": {
     "schemaVersion": 1,
-    "generatedAt": "2026-08-17T22:50:07.762Z",
+    "generatedAt": "2026-08-17T23:16:15.679Z",
     "project": {
       "framework": "maddex",
       "language": "python",
@@ -66,6 +66,10 @@
       "library": "ppicons"
     },
     "components": [
+      {
+        "name": "AlertDialog",
+        "file": "src/lib/maddex/AlertDialog.py"
+      },
       {
         "name": "Button",
         "file": "src/lib/maddex/Button.py"

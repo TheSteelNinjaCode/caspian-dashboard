@@ -4,6 +4,7 @@ from urllib.parse import urlencode
 
 from casp.component_decorator import html
 from casp.layout import Metadata
+from casp.rpc import rpc
 
 from src.components.dashboard.users.UsersPagination import UsersPagination
 from src.components.dashboard.users.UsersTable import UsersTable
@@ -17,6 +18,23 @@ metadata = Metadata(
     title="Users | Caspian Dashboard",
     description="Browse and search dashboard users.",
 )
+
+
+async def _delete_user(user_id: str) -> dict[str, str | bool]:
+    normalized_id = (user_id or "").strip()
+    if not normalized_id:
+        return {"success": False, "message": "A user ID is required."}
+
+    deleted_user = await prisma.user.delete(where={"id": normalized_id})
+    if not deleted_user:
+        return {"success": False, "message": "The selected user no longer exists."}
+
+    return {"success": True, "id": deleted_user.id}
+
+
+@rpc(require_auth=True, limits="20/minute")
+async def delete_user(user_id: str) -> dict[str, str | bool]:
+    return await _delete_user(user_id)
 
 
 def _build_search_where(search_term: str) -> UserWhereInput:

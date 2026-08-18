@@ -1398,8 +1398,21 @@
   .group-data-\[collapsible\=icon\]\:justify-center:is(:where(.group)[data-collapsible="icon"] *) {
     justify-content: center;
   }
+  .group-data-\[collapsible\=icon\]\:gap-0:is(:where(.group)[data-collapsible="icon"] *) {
+    gap: 0px;
+  }
   .group-data-\[collapsible\=icon\]\:overflow-hidden:is(:where(.group)[data-collapsible="icon"] *) {
     overflow: hidden;
+  }
+  .group-data-\[collapsible\=icon\]\:border-0:is(:where(.group)[data-collapsible="icon"] *) {
+    border-style: var(--tw-border-style);
+    border-width: 0px;
+  }
+  .group-data-\[collapsible\=icon\]\:bg-transparent:is(:where(.group)[data-collapsible="icon"] *) {
+    background-color: transparent;
+  }
+  .group-data-\[collapsible\=icon\]\:p-0:is(:where(.group)[data-collapsible="icon"] *) {
+    padding: 0px;
   }
   .group-data-\[collapsible\=icon\]\:p-0\!:is(:where(.group)[data-collapsible="icon"] *) {
     padding: 0px !important;
@@ -1409,6 +1422,10 @@
   }
   .group-data-\[collapsible\=icon\]\:opacity-0:is(:where(.group)[data-collapsible="icon"] *) {
     opacity: 0%;
+  }
+  .group-data-\[collapsible\=icon\]\:shadow-none:is(:where(.group)[data-collapsible="icon"] *) {
+    --tw-shadow: 0 0 #0000;
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
   .group-data-\[collapsible\=offcanvas\]\:w-0:is(:where(.group)[data-collapsible="offcanvas"] *) {
     width: 0px;
@@ -1634,6 +1651,9 @@
     .hover\:shadow-\[0_0_0_1px_hsl\(var\(--sidebar-accent\)\)\]:hover {
       --tw-shadow: 0 0 0 1px var(--tw-shadow-color, hsl(var(--sidebar-accent)));
       box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+    }
+    .group-data-\[collapsible\=icon\]\:hover\:bg-transparent:is(:where(.group)[data-collapsible="icon"] *):hover {
+      background-color: transparent;
     }
     .hover\:group-data-\[collapsible\=offcanvas\]\:bg-sidebar:hover:is(:where(.group)[data-collapsible="offcanvas"] *) {
       background-color: var(--sidebar);

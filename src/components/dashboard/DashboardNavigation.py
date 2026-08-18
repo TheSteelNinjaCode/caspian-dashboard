@@ -45,6 +45,10 @@ def DashboardNavigation(isOverview: str = "False", isUsers: str = "False"):
       <x-sidebar-group-content>
         <x-sidebar-menu>
           <x-sidebar-menu-item>
+            <div class="mb-2 px-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/80">Workspace</div>
+          </x-sidebar-menu-item>
+
+          <x-sidebar-menu-item>
             <x-sidebar-menu-button asChild="True"
                                    isActive="{{ isOverview }}"
                                    tooltip="Overview"
@@ -58,6 +62,11 @@ def DashboardNavigation(isOverview: str = "False", isUsers: str = "False"):
           <x-sidebar-menu-item>
             <x-sidebar-menu-button tooltip="Orders" class="group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"><x-shopping-bag class="size-4" /><span>Orders</span></x-sidebar-menu-button>
           </x-sidebar-menu-item>
+
+          <x-sidebar-menu-item>
+            <div class="mb-2 mt-4 px-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/80">Customers</div>
+          </x-sidebar-menu-item>
+
           <x-sidebar-menu-item>
             <x-sidebar-menu-button tooltip="Customers" class="group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"><x-user-round class="size-4" /><span>Customers</span></x-sidebar-menu-button>
           </x-sidebar-menu-item>
@@ -69,6 +78,11 @@ def DashboardNavigation(isOverview: str = "False", isUsers: str = "False"):
               <a href="/dashboard/users"><x-users class="size-4" /><span>Users</span></a>
             </x-sidebar-menu-button>
           </x-sidebar-menu-item>
+
+          <x-sidebar-menu-item>
+            <div class="mb-2 mt-4 px-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/80">Administration</div>
+          </x-sidebar-menu-item>
+
           <x-sidebar-menu-item>
             <x-sidebar-menu-button tooltip="Settings" class="group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"><x-settings class="size-4" /><span>Settings</span></x-sidebar-menu-button>
           </x-sidebar-menu-item>

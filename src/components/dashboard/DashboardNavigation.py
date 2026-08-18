@@ -41,11 +41,11 @@ def DashboardNavigation(isOverview: str = "False", isUsers: str = "False"):
 
   <x-sidebar-content>
     <x-sidebar-group>
-      <x-sidebar-group-label class="group-data-[collapsible=icon]:hidden">Navigation</x-sidebar-group-label>
+      <x-sidebar-group-label class="hidden">Navigation</x-sidebar-group-label>
       <x-sidebar-group-content>
         <x-sidebar-menu>
           <x-sidebar-menu-item>
-            <div class="mb-2 px-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/80">Workspace</div>
+            <div class="mb-2 px-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/80 group-data-[collapsible=icon]:hidden">Workspace</div>
           </x-sidebar-menu-item>
 
           <x-sidebar-menu-item>
@@ -64,7 +64,7 @@ def DashboardNavigation(isOverview: str = "False", isUsers: str = "False"):
           </x-sidebar-menu-item>
 
           <x-sidebar-menu-item>
-            <div class="mb-2 mt-4 px-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/80">Customers</div>
+            <div class="mb-2 mt-4 px-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/80 group-data-[collapsible=icon]:hidden">Customers</div>
           </x-sidebar-menu-item>
 
           <x-sidebar-menu-item>
@@ -80,7 +80,7 @@ def DashboardNavigation(isOverview: str = "False", isUsers: str = "False"):
           </x-sidebar-menu-item>
 
           <x-sidebar-menu-item>
-            <div class="mb-2 mt-4 px-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/80">Administration</div>
+            <div class="mb-2 mt-4 px-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/80 group-data-[collapsible=icon]:hidden">Administration</div>
           </x-sidebar-menu-item>
 
           <x-sidebar-menu-item>

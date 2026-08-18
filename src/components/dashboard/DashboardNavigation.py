@@ -28,9 +28,9 @@ from src.lib.ppicons import ChartColumn, House, PanelLeft, Settings, ShoppingBag
 def DashboardNavigation(isOverview: str = "False", isUsers: str = "False"):
     return html(r"""
 <x-sidebar collapsible="icon">
-  <x-sidebar-header class="h-13.25 justify-center p-2 md:items-center xl:items-start group-data-[collapsible=icon]:items-center">
+  <x-sidebar-header class="h-12 justify-center p-2 md:items-center xl:items-start group-data-[collapsible=icon]:items-center">
     <div class="flex w-full items-center gap-2 md:justify-center xl:justify-start group-data-[collapsible=icon]:justify-center">
-      <div class="flex size-9 items-center justify-center rounded-md bg-primary/15 text-primary group-data-[collapsible=icon]:size-8">
+      <div class="flex size-8 items-center justify-center rounded-md bg-primary/15 text-primary">
         <x-panel-left class="size-4" />
       </div>
       <p class="font-semibold group-data-[collapsible=icon]:hidden">Caspian Dashboard</p>

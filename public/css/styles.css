@@ -495,9 +495,6 @@
   .h-12 {
     height: calc(var(--spacing) * 12);
   }
-  .h-13\.25 {
-    height: calc(var(--spacing) * 13.25);
-  }
   .h-auto {
     height: auto;
   }
@@ -967,6 +964,9 @@
   }
   .py-2 {
     padding-block: calc(var(--spacing) * 2);
+  }
+  .py-2\.5 {
+    padding-block: calc(var(--spacing) * 2.5);
   }
   .py-3 {
     padding-block: calc(var(--spacing) * 3);

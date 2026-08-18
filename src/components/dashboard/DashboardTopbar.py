@@ -7,7 +7,7 @@ from src.lib.ppicons import ChevronRight
 @component
 def DashboardTopbar(currentSection: str = "Overview"):
     return html(r"""
-<header class="sticky top-0 z-20 border-b border-border bg-background/90 px-4 py-3 backdrop-blur md:px-6">
+<header class="sticky top-0 z-20 h-12 border-b border-border bg-background/90 px-4 py-2.5 backdrop-blur md:px-6">
   <div class="flex items-center justify-between gap-3">
     <div class="flex items-center gap-3">
       <x-sidebar-trigger />

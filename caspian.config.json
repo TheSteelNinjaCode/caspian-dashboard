@@ -16,7 +16,6 @@
     "src"
   ],
   "excludeFiles": [
-    ".env",
     "./src/app/globals.css",
     "./src/app/index.py",
     "./src/app/layout.py",

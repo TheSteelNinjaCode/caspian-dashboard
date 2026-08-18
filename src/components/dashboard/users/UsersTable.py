@@ -33,7 +33,7 @@ def UsersTable(users: list[dict[str, str]]):
 
   <x-dialog open="{editDialogOpen}" on-open-change="{handleEditDialogOpenChange}" reset-on-open="true">
     <x-dialog-content class="sm:max-w-lg">
-      <x-create-update-dialog selected-item="{selectedUser}" />
+      <x-create-update-dialog selected-item="{selectedUser}" on-success="{handleEditSuccess}" />
     </x-dialog-content>
   </x-dialog>
 
@@ -58,6 +58,14 @@ def UsersTable(users: list[dict[str, str]]):
 
     function handleEditDialogOpenChange(nextOpen) {
       setEditDialogOpen(nextOpen);
+    }
+
+    function handleEditSuccess(user) {
+      setEditDialogOpen(false);
+      if (!user) return;
+      setVisibleUsers((currentUsers) =>
+        currentUsers.map((existing) => (existing.id === user.id ? user : existing)),
+      );
     }
 
     function openDeleteDialog(user) {

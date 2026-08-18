@@ -19,16 +19,25 @@ def UsersToolbar(search_term: str):
       <x-input type="search" name="q" value="{{ search_term }}" placeholder="Search users..." class="w-full rounded-xl pl-9" oninput="queueSearch(event.target.value)" />
     </label>
 
-    <x-dialog>
+    <x-dialog open="{createDialogOpen}" on-open-change="{setCreateDialogOpen}" reset-on-open="true">
       <x-dialog-trigger as-child>
         <x-button type="button" size="icon" class="shrink-0 rounded-xl bg-zinc-900 text-white shadow-sm hover:bg-zinc-800" aria-label="Add user"><x-plus /></x-button>
       </x-dialog-trigger>
 
       <x-dialog-content class="sm:max-w-lg">
-        <x-create-update-dialog mode="user" />
+        <x-create-update-dialog on-success="{handleCreateSuccess}" />
       </x-dialog-content>
     </x-dialog>
   </div>
+
+  <script>
+    const [createDialogOpen, setCreateDialogOpen] = pp.state(false);
+
+    function handleCreateSuccess(user) {
+      setCreateDialogOpen(false);
+      if (user) pp.redirect(window.location.pathname + window.location.search);
+    }
+  </script>
 </header>
 """,
         search_term=search_term,

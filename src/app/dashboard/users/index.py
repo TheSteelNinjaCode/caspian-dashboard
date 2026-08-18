@@ -5,12 +5,14 @@ from urllib.parse import urlencode
 from casp.component_decorator import html
 from casp.layout import Metadata
 from casp.rpc import rpc
+from casp.validate import Validate
+from werkzeug.security import generate_password_hash
 
 from src.components.dashboard.users.UsersPagination import UsersPagination
 from src.components.dashboard.users.UsersTable import UsersTable
 from src.components.dashboard.users.UsersToolbar import UsersToolbar
 from src.lib.prisma import prisma
-from src.lib.prisma.models import UserWhereInput
+from src.lib.prisma.models import UserCreateInput, UserUpdateInput, UserWhereInput
 
 PAGE_SIZE = 5
 
@@ -18,6 +20,15 @@ metadata = Metadata(
     title="Users | Caspian Dashboard",
     description="Browse and search dashboard users.",
 )
+
+
+def _serialize_user(user) -> dict[str, str]:
+    return {
+        "id": user.id,
+        "name": user.name or "Unnamed user",
+        "email": user.email or "No email available",
+        "created_at": user.createdAt.strftime("%B %d, %Y") if user.createdAt else "Unavailable",
+    }
 
 
 async def _delete_user(user_id: str) -> dict[str, str | bool]:
@@ -35,6 +46,44 @@ async def _delete_user(user_id: str) -> dict[str, str | bool]:
 @rpc(require_auth=True, limits="20/minute")
 async def delete_user(user_id: str) -> dict[str, str | bool]:
     return await _delete_user(user_id)
+
+
+@rpc(require_auth=True, limits="20/minute")
+async def save_user(name: str, email: str, password: str = "", user_id: str = "") -> dict[str, object]:
+    normalized_id = (user_id or "").strip()
+    name_validated = Validate.string(name)
+    email_validated = Validate.email(email)
+
+    if not name_validated or not email_validated:
+        return {"success": False, "message": "A name and a valid email are required."}
+
+    if not normalized_id and not password:
+        return {"success": False, "message": "A password is required to create a user."}
+
+    existing = await prisma.user.find_unique(where={"email": email_validated})
+    if existing and existing.id != normalized_id:
+        return {"success": False, "message": "A user with this email already exists."}
+
+    if normalized_id:
+        update_data = cast(UserUpdateInput, {"name": name_validated, "email": email_validated})
+        if password:
+            update_data["password"] = generate_password_hash(password)
+        saved_user = await prisma.user.update(where={"id": normalized_id}, data=update_data)
+    else:
+        create_data = cast(
+            UserCreateInput,
+            {
+                "name": name_validated,
+                "email": email_validated,
+                "password": generate_password_hash(password),
+            },
+        )
+        saved_user = await prisma.user.create(data=create_data)
+
+    if not saved_user:
+        return {"success": False, "message": "Unable to save this user."}
+
+    return {"success": True, "user": _serialize_user(saved_user)}
 
 
 def _build_search_where(search_term: str) -> UserWhereInput:
@@ -82,15 +131,7 @@ async def page(page: int = 1, q: str = ""):
         take=PAGE_SIZE,
     )
 
-    users = [
-        {
-            "id": user.id,
-            "name": user.name or "Unnamed user",
-            "email": user.email or "No email available",
-            "created_at": user.createdAt.strftime("%B %d, %Y") if user.createdAt else "Unavailable",
-        }
-        for user in records
-    ]
+    users = [_serialize_user(user) for user in records]
 
     toolbar = UsersToolbar(search_term=search_term)
     table = UsersTable(users=users)

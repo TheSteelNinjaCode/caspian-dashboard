@@ -3,6 +3,9 @@ name = "caspian-app"
 version = "1.0.0"
 requires-python = ">=3.14"
 dependencies = [
+    "aiomysql==0.3.2",
+    "aiosqlite==0.22.1",
+    "asyncpg==0.31.0",
     "beautifulsoup4==4.15.0",
     "caspian-utils~=0.4",
     "cuid==0.4",
@@ -11,6 +14,7 @@ dependencies = [
     "httpx2==2.10.0",
     "jinja2==3.1.6",
     "nanoid==2.0.0",
+    "psycopg2-binary==2.9.12",
     "python-dotenv==1.2.2",
     "python-multipart==0.0.32",
     "python-ulid==4.0.1",

@@ -109,7 +109,4 @@ def page(error_message: str, error_trace: Optional[str] = None):
     </script>
   </div>
 </main>
-""",
-        error_message=error_message,
-        error_trace=error_trace,
-    )
+""", error_message=error_message, error_trace=error_trace)

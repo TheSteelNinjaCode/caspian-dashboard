@@ -11,9 +11,16 @@
   "websocket": false,
   "prisma": true,
   "typescript": false,
-  "version": "1.3.21",
+  "version": "1.3.22",
   "componentScanDirs": [
     "src"
   ],
-  "excludeFiles": []
+  "excludeFiles": [
+    ".env",
+    "./src/app/globals.css",
+    "./src/app/index.py",
+    "./src/app/layout.py",
+    "./prisma/schema.prisma",
+    "./src/lib/auth/auth_config.py"
+  ]
 }

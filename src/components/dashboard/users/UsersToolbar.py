@@ -29,15 +29,6 @@ def UsersToolbar(search_term: str):
       </x-dialog-content>
     </x-dialog>
   </div>
-
-  <script>
-    const [createDialogOpen, setCreateDialogOpen] = pp.state(false);
-
-    function handleCreateSuccess(user) {
-      setCreateDialogOpen(false);
-      if (user) pp.redirect(window.location.pathname + window.location.search);
-    }
-  </script>
 </header>
 """,
         search_term=search_term,

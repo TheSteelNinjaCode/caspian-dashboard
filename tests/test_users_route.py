@@ -33,3 +33,19 @@ def test_delete_user_reports_missing_user(monkeypatch):
         "success": False,
         "message": "The selected user no longer exists.",
     }
+
+
+def test_page_serializes_queried_users_into_owner_script(monkeypatch):
+    user = SimpleNamespace(
+        id="user-123",
+        name="Ada Lovelace",
+        email="ada@example.com",
+        createdAt=None,
+    )
+    monkeypatch.setattr(users_route.prisma.user, "count", AsyncMock(return_value=1))
+    monkeypatch.setattr(users_route.prisma.user, "find_many", AsyncMock(return_value=[user]))
+
+    result = str(asyncio.run(users_route.page()))
+
+    assert 'const [visibleUsers, setVisibleUsers] = pp.state([{"id": "user-123"' in result
+    assert '"name": "Ada Lovelace"' in result

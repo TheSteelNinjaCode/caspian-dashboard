@@ -151,7 +151,71 @@ async def page(page: int = 1, q: str = ""):
   {{ pagination }}
 
   <script>
+        const [visibleUsers, setVisibleUsers] = pp.state({{ users | json }});
+        const [createDialogOpen, setCreateDialogOpen] = pp.state(false);
+        const [editDialogOpen, setEditDialogOpen] = pp.state(false);
+        const [deleteDialogOpen, setDeleteDialogOpen] = pp.state(false);
+        const [selectedUser, setSelectedUser] = pp.state(null);
+        const [isDeleting, setIsDeleting] = pp.state(false);
+        const [deleteError, setDeleteError] = pp.state("");
     const searchTimeout = pp.ref(null);
+
+        function handleCreateSuccess(user) {
+            setCreateDialogOpen(false);
+            if (user) pp.redirect(window.location.pathname + window.location.search);
+        }
+
+        function openEditDialog(user) {
+            setSelectedUser({ ...user });
+            setEditDialogOpen(true);
+        }
+
+        function handleEditDialogOpenChange(nextOpen) {
+            setEditDialogOpen(nextOpen);
+        }
+
+        function handleEditSuccess(user) {
+            setEditDialogOpen(false);
+            if (!user) return;
+            setVisibleUsers((currentUsers) =>
+                currentUsers.map((existing) => (existing.id === user.id ? user : existing)),
+            );
+        }
+
+        function openDeleteDialog(user) {
+            setSelectedUser({ ...user });
+            setDeleteError("");
+            setDeleteDialogOpen(true);
+        }
+
+        function handleDeleteDialogOpenChange(nextOpen) {
+            if (isDeleting) return;
+            setDeleteDialogOpen(nextOpen);
+            if (!nextOpen) setDeleteError("");
+        }
+
+        async function confirmDelete() {
+            if (!selectedUser?.id || isDeleting) return;
+
+            setIsDeleting(true);
+            setDeleteError("");
+            try {
+                const result = await pp.rpc("delete_user", { user_id: selectedUser.id });
+                if (!result?.success) {
+                    throw new Error(result?.message || "Unable to delete this user.");
+                }
+
+                setVisibleUsers((currentUsers) =>
+                    currentUsers.filter((user) => user.id !== selectedUser.id),
+                );
+                setDeleteDialogOpen(false);
+                setSelectedUser(null);
+            } catch (error) {
+                setDeleteError(error instanceof Error ? error.message : "Unable to delete this user.");
+            } finally {
+                setIsDeleting(false);
+            }
+        }
 
     function queueSearch(value) {
         const nextValue = value.trim();
@@ -174,4 +238,5 @@ async def page(page: int = 1, q: str = ""):
         toolbar=toolbar,
         table=table,
         pagination=pagination,
+        users=users,
     )

@@ -19,6 +19,9 @@ from src.lib.maddex.Sidebar import (
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    SidebarMenuSub,
+    SidebarMenuSubButton,
+    SidebarMenuSubItem,
     SidebarSeparator,
 )
 from src.lib.ppicons import ChartColumn, House, PanelLeft, Settings, ShoppingBag, UserRound, Users
@@ -58,6 +61,18 @@ def DashboardNavigation(isOverview: str = "False", isUsers: str = "False"):
           </x-sidebar-menu-item>
           <x-sidebar-menu-item>
             <x-sidebar-menu-button tooltip="Analytics" class="group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"><x-chart-column class="size-4" /><span>Analytics</span></x-sidebar-menu-button>
+            <x-sidebar-menu-sub>
+              <x-sidebar-menu-sub-item>
+                <x-sidebar-menu-sub-button asChild="True">
+                  <button type="button"><span>Overview report</span></button>
+                </x-sidebar-menu-sub-button>
+              </x-sidebar-menu-sub-item>
+              <x-sidebar-menu-sub-item>
+                <x-sidebar-menu-sub-button asChild="True">
+                  <button type="button"><span>Audience insights</span></button>
+                </x-sidebar-menu-sub-button>
+              </x-sidebar-menu-sub-item>
+            </x-sidebar-menu-sub>
           </x-sidebar-menu-item>
           <x-sidebar-menu-item>
             <x-sidebar-menu-button tooltip="Orders" class="group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"><x-shopping-bag class="size-4" /><span>Orders</span></x-sidebar-menu-button>

@@ -17,7 +17,7 @@ def UsersTable(users: list[dict[str, str]]):
       <table class="w-full min-w-4xl text-left">
         <thead><tr class="border-b border-border"><th class="px-4 py-4 text-base font-semibold">Name</th><th class="px-4 py-4 text-base font-semibold">Email</th><th class="px-4 py-4 text-base font-semibold">Created at</th><th class="px-4 py-4 text-right text-base font-semibold">Options</th></tr></thead>
         <tbody>
-          <template pp-for="user in visibleUsers">
+          <template pp-for="user in userPage.users">
             <tr key="{user.id}" class="border-b border-border last:border-b-0">
               <td class="px-4 py-4 text-base font-medium">{user.name}</td>
               <td class="px-4 py-4 text-base">{user.email}</td>
@@ -25,7 +25,7 @@ def UsersTable(users: list[dict[str, str]]):
               <td class="px-4 py-3"><div class="flex justify-end"><x-button type="button" variant="outline" size="icon-sm" class="rounded-r-none border-r-0" aria-label="{`Edit ${user.name}`}" onclick="openEditDialog(user)"><x-pencil /></x-button><x-button type="button" variant="destructive" size="icon-sm" class="rounded-l-none" aria-label="{`Delete ${user.name}`}" onclick="openDeleteDialog(user)"><x-trash2 /></x-button></div></td>
             </tr>
           </template>
-          <tr hidden="{visibleUsers.length !== 0}"><td colspan="4" class="px-4 py-10 text-center text-base text-muted-foreground">No users found.</td></tr>
+          <tr hidden="{userPage.users.length !== 0}"><td colspan="4" class="px-4 py-10 text-center text-base text-muted-foreground">No users found.</td></tr>
         </tbody>
       </table>
     </div>

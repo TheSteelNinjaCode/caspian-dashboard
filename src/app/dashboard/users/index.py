@@ -1,5 +1,5 @@
 import math
-from typing import cast
+from typing import TypedDict, cast
 from urllib.parse import urlencode
 
 from casp.component_decorator import html
@@ -15,6 +15,20 @@ from src.lib.prisma import prisma
 from src.lib.prisma.models import UserCreateInput, UserUpdateInput, UserWhereInput
 
 PAGE_SIZE = 5
+
+
+class PaginationData(TypedDict):
+    currentPage: int
+    totalPages: int
+    hasPrevious: bool
+    hasNext: bool
+    previousHref: str
+    nextHref: str
+
+
+class UsersPageData(TypedDict):
+    users: list[dict[str, str]]
+    pagination: PaginationData
 
 metadata = Metadata(
     title="Users | Caspian Dashboard",
@@ -114,9 +128,13 @@ def _build_page_href(page_number: int, search_term: str) -> str:
     return f"/dashboard/users{f'?{query_string}' if query_string else ''}"
 
 
-async def page(page: int = 1, q: str = ""):
-    current_page = max(int(page or 1), 1)
-    search_term = (q or "").strip()
+async def _get_users_page(page_number: int | str, query: str) -> UsersPageData:
+    try:
+        current_page = max(int(page_number or 1), 1)
+    except (TypeError, ValueError):
+        current_page = 1
+
+    search_term = (query or "").strip()[:100]
     where = _build_search_where(search_term)
 
     total_users = await prisma.user.count(where=where)
@@ -133,16 +151,31 @@ async def page(page: int = 1, q: str = ""):
 
     users = [_serialize_user(user) for user in records]
 
+    return {
+        "users": users,
+        "pagination": {
+            "currentPage": current_page,
+            "totalPages": total_pages,
+            "hasPrevious": current_page > 1,
+            "hasNext": current_page < total_pages,
+            "previousHref": _build_page_href(current_page - 1, search_term),
+            "nextHref": _build_page_href(current_page + 1, search_term),
+        },
+    }
+
+
+@rpc(require_auth=True, limits="60/minute")
+async def search_users(q: str = "", page: int = 1) -> UsersPageData:
+    return await _get_users_page(page, q)
+
+
+async def page(page: int = 1, q: str = ""):
+    search_term = (q or "").strip()[:100]
+    user_page = await _get_users_page(page, search_term)
+
     toolbar = UsersToolbar(search_term=search_term)
-    table = UsersTable(users=users)
-    pagination = UsersPagination(
-        current_page=current_page,
-        total_pages=total_pages,
-        has_previous=current_page > 1,
-        has_next=current_page < total_pages,
-        previous_href=_build_page_href(current_page - 1, search_term),
-        next_href=_build_page_href(current_page + 1, search_term),
-    )
+    table = UsersTable(users=user_page["users"])
+    pagination = UsersPagination()
 
     return html(r"""
 <section class="space-y-6">
@@ -151,14 +184,16 @@ async def page(page: int = 1, q: str = ""):
   {{ pagination }}
 
   <script>
-        const [visibleUsers, setVisibleUsers] = pp.state({{ users | json }});
+      const [userPage, setUserPage] = pp.state({{ user_page | json }});
         const [createDialogOpen, setCreateDialogOpen] = pp.state(false);
         const [editDialogOpen, setEditDialogOpen] = pp.state(false);
         const [deleteDialogOpen, setDeleteDialogOpen] = pp.state(false);
         const [selectedUser, setSelectedUser] = pp.state(null);
         const [isDeleting, setIsDeleting] = pp.state(false);
         const [deleteError, setDeleteError] = pp.state("");
-    const searchTimeout = pp.ref(null);
+        const searchText = pp.ref({{ search_term | json }});
+        const searchTimeout = pp.ref(null);
+        const searchGeneration = pp.ref(0);
 
         function handleCreateSuccess(user) {
             setCreateDialogOpen(false);
@@ -177,9 +212,12 @@ async def page(page: int = 1, q: str = ""):
         function handleEditSuccess(user) {
             setEditDialogOpen(false);
             if (!user) return;
-            setVisibleUsers((currentUsers) =>
-                currentUsers.map((existing) => (existing.id === user.id ? user : existing)),
-            );
+            setUserPage((current) => ({
+                ...current,
+                users: current.users.map((existing) =>
+                    existing.id === user.id ? user : existing,
+                ),
+            }));
         }
 
         function openDeleteDialog(user) {
@@ -205,9 +243,10 @@ async def page(page: int = 1, q: str = ""):
                     throw new Error(result?.message || "Unable to delete this user.");
                 }
 
-                setVisibleUsers((currentUsers) =>
-                    currentUsers.filter((user) => user.id !== selectedUser.id),
-                );
+                setUserPage((current) => ({
+                    ...current,
+                    users: current.users.filter((user) => user.id !== selectedUser.id),
+                }));
                 setDeleteDialogOpen(false);
                 setSelectedUser(null);
             } catch (error) {
@@ -218,17 +257,26 @@ async def page(page: int = 1, q: str = ""):
         }
 
     function queueSearch(value) {
-        const nextValue = value.trim();
+        searchText.current = value.trim();
+        const generation = ++searchGeneration.current;
         clearTimeout(searchTimeout.current);
-        searchTimeout.current = setTimeout(() => {
-            const nextUrl = nextValue
-                ? `/dashboard/users?q=${encodeURIComponent(nextValue)}`
-                : "/dashboard/users";
+        searchTimeout.current = setTimeout(() => searchUsers(generation), 250);
+    }
 
-            if (nextUrl !== `${window.location.pathname}${window.location.search}`) {
-                pp.redirect(nextUrl);
-            }
-        }, 250);
+    async function searchUsers(generation) {
+        const result = await pp.rpc(
+            "search_users",
+            { q: searchText.current, page: 1 },
+            { abortPrevious: true },
+        );
+
+        if (result?.cancelled || generation !== searchGeneration.current) return;
+
+        setUserPage(result);
+        const nextUrl = searchText.current
+            ? `/dashboard/users?q=${encodeURIComponent(searchText.current)}`
+            : "/dashboard/users";
+        window.history.replaceState(window.history.state, "", nextUrl);
     }
 
     pp.effect(() => () => clearTimeout(searchTimeout.current), []);
@@ -238,5 +286,6 @@ async def page(page: int = 1, q: str = ""):
         toolbar=toolbar,
         table=table,
         pagination=pagination,
-        users=users,
+        user_page=user_page,
+        search_term=search_term,
     )

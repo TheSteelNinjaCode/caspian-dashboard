@@ -47,5 +47,43 @@ def test_page_serializes_queried_users_into_owner_script(monkeypatch):
 
     result = str(asyncio.run(users_route.page()))
 
-    assert 'const [visibleUsers, setVisibleUsers] = pp.state([{"id": "user-123"' in result
+    assert 'const [userPage, setUserPage] = pp.state({"users": [{"id": "user-123"' in result
     assert '"name": "Ada Lovelace"' in result
+
+
+def test_get_users_page_filters_and_returns_rpc_pagination(monkeypatch):
+    user = SimpleNamespace(
+        id="user-123",
+        name="Ada Lovelace",
+        email="ada@example.com",
+        createdAt=None,
+    )
+    count = AsyncMock(return_value=1)
+    find_many = AsyncMock(return_value=[user])
+    monkeypatch.setattr(users_route.prisma.user, "count", count)
+    monkeypatch.setattr(users_route.prisma.user, "find_many", find_many)
+
+    result = asyncio.run(users_route._get_users_page(1, "  ada  "))
+
+    expected_where = {
+        "OR": [
+            {"name": {"contains": "ada"}},
+            {"email": {"contains": "ada"}},
+        ]
+    }
+    count.assert_awaited_once_with(where=expected_where)
+    find_many.assert_awaited_once_with(
+        where=expected_where,
+        order_by={"createdAt": "desc"},
+        skip=0,
+        take=users_route.PAGE_SIZE,
+    )
+    assert result["users"][0]["name"] == "Ada Lovelace"
+    assert result["pagination"] == {
+        "currentPage": 1,
+        "totalPages": 1,
+        "hasPrevious": False,
+        "hasNext": False,
+        "previousHref": "/dashboard/users?q=ada",
+        "nextHref": "/dashboard/users?page=2&q=ada",
+    }

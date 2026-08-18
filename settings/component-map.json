@@ -143,38 +143,7 @@
     "relativePath": "src/components/dashboard/users/UsersPagination.py",
     "importRoute": "src.components.dashboard.users.UsersPagination",
     "acceptsArbitraryProps": false,
-    "props": [
-      {
-        "name": "current_page",
-        "type": "int",
-        "hasDefault": false
-      },
-      {
-        "name": "total_pages",
-        "type": "int",
-        "hasDefault": false
-      },
-      {
-        "name": "has_previous",
-        "type": "bool",
-        "hasDefault": false
-      },
-      {
-        "name": "has_next",
-        "type": "bool",
-        "hasDefault": false
-      },
-      {
-        "name": "previous_href",
-        "type": "str",
-        "hasDefault": false
-      },
-      {
-        "name": "next_href",
-        "type": "str",
-        "hasDefault": false
-      }
-    ]
+    "props": []
   },
   {
     "componentName": "UsersTable",

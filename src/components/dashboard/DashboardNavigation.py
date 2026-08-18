@@ -28,7 +28,7 @@ from src.lib.ppicons import ChartColumn, House, PanelLeft, Settings, ShoppingBag
 def DashboardNavigation(isOverview: str = "False", isUsers: str = "False"):
     return html(r"""
 <x-sidebar collapsible="icon">
-  <x-sidebar-header class="h-15.25 justify-center p-3 md:items-center xl:items-start group-data-[collapsible=icon]:items-center">
+  <x-sidebar-header class="h-13.25 justify-center p-2 md:items-center xl:items-start group-data-[collapsible=icon]:items-center">
     <div class="flex w-full items-center gap-2 md:justify-center xl:justify-start group-data-[collapsible=icon]:justify-center">
       <div class="flex size-9 items-center justify-center rounded-md bg-primary/15 text-primary group-data-[collapsible=icon]:size-8">
         <x-panel-left class="size-4" />
@@ -41,7 +41,7 @@ def DashboardNavigation(isOverview: str = "False", isUsers: str = "False"):
 
   <x-sidebar-content>
     <x-sidebar-group>
-      <x-sidebar-group-label>Navigation</x-sidebar-group-label>
+      <x-sidebar-group-label class="group-data-[collapsible=icon]:hidden">Navigation</x-sidebar-group-label>
       <x-sidebar-group-content>
         <x-sidebar-menu>
           <x-sidebar-menu-item>
@@ -53,23 +53,24 @@ def DashboardNavigation(isOverview: str = "False", isUsers: str = "False"):
             </x-sidebar-menu-button>
           </x-sidebar-menu-item>
           <x-sidebar-menu-item>
-            <x-sidebar-menu-button tooltip="Analytics"><x-chart-column class="size-4" /><span>Analytics</span></x-sidebar-menu-button>
+            <x-sidebar-menu-button tooltip="Analytics" class="group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"><x-chart-column class="size-4" /><span>Analytics</span></x-sidebar-menu-button>
           </x-sidebar-menu-item>
           <x-sidebar-menu-item>
-            <x-sidebar-menu-button tooltip="Orders"><x-shopping-bag class="size-4" /><span>Orders</span></x-sidebar-menu-button>
+            <x-sidebar-menu-button tooltip="Orders" class="group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"><x-shopping-bag class="size-4" /><span>Orders</span></x-sidebar-menu-button>
           </x-sidebar-menu-item>
           <x-sidebar-menu-item>
-            <x-sidebar-menu-button tooltip="Customers"><x-user-round class="size-4" /><span>Customers</span></x-sidebar-menu-button>
+            <x-sidebar-menu-button tooltip="Customers" class="group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"><x-user-round class="size-4" /><span>Customers</span></x-sidebar-menu-button>
           </x-sidebar-menu-item>
           <x-sidebar-menu-item>
             <x-sidebar-menu-button asChild="True"
                                    isActive="{{ isUsers }}"
-                                   tooltip="Users">
+                                   tooltip="Users"
+                                   class="group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden">
               <a href="/dashboard/users"><x-users class="size-4" /><span>Users</span></a>
             </x-sidebar-menu-button>
           </x-sidebar-menu-item>
           <x-sidebar-menu-item>
-            <x-sidebar-menu-button tooltip="Settings"><x-settings class="size-4" /><span>Settings</span></x-sidebar-menu-button>
+            <x-sidebar-menu-button tooltip="Settings" class="group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:[&>span]:hidden"><x-settings class="size-4" /><span>Settings</span></x-sidebar-menu-button>
           </x-sidebar-menu-item>
         </x-sidebar-menu>
       </x-sidebar-group-content>

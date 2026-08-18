@@ -495,8 +495,8 @@
   .h-12 {
     height: calc(var(--spacing) * 12);
   }
-  .h-15\.25 {
-    height: calc(var(--spacing) * 15.25);
+  .h-13\.25 {
+    height: calc(var(--spacing) * 13.25);
   }
   .h-auto {
     height: auto;

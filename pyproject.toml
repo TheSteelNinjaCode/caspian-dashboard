@@ -11,17 +11,17 @@ dependencies = [
     "cuid==0.4",
     "cuid2==2.0.1",
     "fastapi==0.141.1",
-    "httpx2==2.10.0",
+    "httpx2==2.12.0",
     "jinja2==3.1.6",
     "nanoid==2.0.0",
     "psycopg2-binary==2.9.12",
-    "python-dotenv==1.2.2",
+    "python-dotenv==1.2.3",
     "python-multipart==0.0.32",
     "python-ulid==4.0.1",
     "slowapi==0.1.10",
     "starsessions==2.2.1",
     "tzdata==2026.3",
-    "uvicorn==0.52.1",
+    "uvicorn==0.52.4",
     "werkzeug==3.1.8",
 ]
 
@@ -32,7 +32,7 @@ dev = [
     "djlint==1.44.2",
     "pyright==1.1.411",
     "pytest==9.1.1",
-    "ruff==0.16.2",
+    "ruff==0.16.5",
 ]
 
 [tool.uv]
